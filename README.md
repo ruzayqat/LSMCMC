@@ -444,7 +444,7 @@ $$
       (\mathbf{y} - \mathbf{H}\mathbf{m}_i)
 $$
 
-where $\mathbf{S} = \boldsymbol{\Sigma}_\mathbf{y} + \mathbf{H}\boldsymbol{\Sigma}_\mathbf{x}\mathbf{H}^T$.
+where $\mathbf{S} = \boldsymbol{\Sigma}\_\mathbf{y} + \mathbf{H}\boldsymbol{\Sigma}\_\mathbf{x}\mathbf{H}^T$.
 
 **Step 4 — Importance Weights.**
 
@@ -466,7 +466,7 @@ $$
       (\mathbf{H}\mathbf{z}_0 + \mathbf{L}\boldsymbol{\eta})
 $$
 
-where $\mathbf{z}_0 = \text{diag}(\boldsymbol{\sigma}_\mathbf{x})\,\boldsymbol{\varepsilon}$,
+where $\mathbf{z}\_0 = \text{diag}(\boldsymbol{\sigma}\_\mathbf{x})\,\boldsymbol{\varepsilon}$,
 $\boldsymbol{\varepsilon} \sim \mathcal{N}(\mathbf{0},\mathbf{I})$,
 $\boldsymbol{\eta} \sim \mathcal{N}(\mathbf{0},\mathbf{I})$.
 
@@ -726,7 +726,7 @@ $$
 where:
 
 - **Likelihood:** $\log g = -\tfrac{1}{2}\|\boldsymbol{\Sigma}_\mathbf{y}^{-1/2}(\mathbf{y} - \arctan(\mathbf{H}z))\|^2$
-- **Transition:** $\log f = -\tfrac{1}{2}\|{\boldsymbol{\Sigma}_\mathbf{x}}^{-1/2}(z - \mathbf{m}_i)\|^2$
+- **Transition:** $\log f = -\tfrac{1}{2}\|{\boldsymbol{\Sigma}\_\mathbf{x}}^{-1/2}(z - \mathbf{m}\_i)\|^2$
 - **Index prior:** $p(i) = 1/N_f$ (uniform)
 
 ### MCMC Sampling
