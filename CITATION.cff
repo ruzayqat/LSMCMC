@@ -3,7 +3,7 @@ message: "If you use this software, please cite it as below."
 authors:
 - family-names: Ruzayqat
   given-names: Hamza
-orcid: https://orcid.org/0000-0002-6394-0695
+orcid: 0000-0002-6394-0695
 title: Two Localization Strategies for Sequential MCMC Data Assimilation with Applications to Nonlinear Non-Gaussian Geophysical Models
 version: v1.0.0
 date-released: 2026-03-06
