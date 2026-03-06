@@ -2117,7 +2117,6 @@ If you use this code in your research, please cite:
   title   = {Two Localization Strategies for Sequential {MCMC} Data
              Assimilation with Applications to Nonlinear Non-{Gaussian}
              Geophysical Models},
-  journal = {Journal of Advances in Modeling Earth Systems},
   year    = {2026}
 }
 ```
