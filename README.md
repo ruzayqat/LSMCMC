@@ -1,4 +1,5 @@
 [![DOI](https://zenodo.org/badge/854202210.svg)](https://doi.org/10.5281/zenodo.18888945)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ruzayqat/LSMCMC/HEAD?labpath=LSMCMC.ipynb)
 
 # MLSWE\_LSMCMC — Multi-Layer Shallow-Water Equations with Data Assimilation
 
@@ -15,6 +16,8 @@ moves) and **LETKF** (Local Ensemble Transform Kalman Filter) — applied
 to the North Atlantic.  A companion Jupyter notebook
 ([LSMCMC.ipynb](LSMCMC.ipynb)) provides a
 step-by-step running guide and reproduces all figures in the paper.
+
+**Try it online:** Click the Binder badge above to run the notebook in your browser (no installation required).
 
 ---
 
