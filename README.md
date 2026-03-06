@@ -11,7 +11,7 @@ Three-layer isopycnal shallow-water equations solver with two data
 assimilation methods — **LSMCMC** (Local Sequential Monte Carlo with MCMC
 moves) and **LETKF** (Local Ensemble Transform Kalman Filter) — applied
 to the North Atlantic.  A companion Jupyter notebook
-([reproduce_figures.ipynb](reproduce_figures.ipynb)) provides a
+([LSMCMC.ipynb](LSMCMC.ipynb)) provides a
 step-by-step running guide and reproduces all figures in the paper.
 
 ---
@@ -329,9 +329,9 @@ Raw SWOT L2 LR NetCDF files contain several SSH-related variables that
 must be combined to obtain ADT comparable to model $\eta$:
 
 $$
-\text{ADT} = \texttt{ssha\_karin}
-           + \texttt{height\_cor\_xover}
-           + \underbrace{(\text{MSS} _ {\text{CNES/CLS}} - \text{geoid})} _ {\text{MDT}}
+\text{ADT} = \text{ssha\_karin}
+           + \text{height\_cor\_xover}
+           + \underbrace{(\text{MSS}_{\text{CNES/CLS}} - \text{geoid})}_{\text{MDT}}
 $$
 
 | Variable | Description |
@@ -534,7 +534,7 @@ are used in a single global posterior-sampling step.
 This approach treats the observed region as one connected local problem:
 
 $$
-\mathbf{x}_{\text{local}} = \bigl\lbrace\mathbf{x}[c] \;:\; c \in \bigcup_{b \in \mathcal{B}_{\text{obs}}} \text{cells}(b)\bigr\rbrace
+\mathbf{x}_{\text{local}} = \bigl\{\mathbf{x}[c] \;:\; c \in \bigcup_{b \in \mathcal{B}_{\text{obs}}} \text{cells}(b)\bigr\}
 $$
 
 where $\mathcal{B}_{\text{obs}}$ is the set of blocks containing
@@ -633,7 +633,7 @@ The figure below illustrates both localization strategies. The left column shows
 simple domain partitioned into blocks; the right column shows how V1 (block union)
 and V2 (halo + tapering) handle the same observation pattern.
 
-![Localization V1 vs V2](paper_figures/localization_v1_v2_illustration.png)
+![Localization V1 vs V2](figures/localization_v1_v2_illustration.png)
 
 ### Additional Features in Variant 2
 
@@ -1419,9 +1419,9 @@ python3 -u linear_forward_run_lsmcmc_v1.py input_linear_letkf.yml
 
 | | |
 |:--:|:--:|
-| ![LG Observation Swaths](paper_figures/lg_obs_swaths.png) | ![LG RMSE Timeseries](paper_figures/lg_rmse_timeseries.png) |
+| ![LG Observation Swaths](figures/lg_obs_swaths.png) | ![LG RMSE Timeseries](figures/lg_rmse_timeseries.png) |
 | Synthetic swath observation pattern | RMSE timeseries showing filter convergence |
-| ![LG Snapshot](paper_figures/lg_snapshot.png) | |
+| ![LG Snapshot](figures/lg_snapshot.png) | |
 | Analysis snapshot at a single cycle | |
 
 ### 2a. MLSWE — Linear Data Model with Real Data
@@ -1458,8 +1458,10 @@ nohup python3 -u run_mlswe_lsmcmc_ldata_V2.py example_input_mlswe_ldata_V2.yml \
 
 | | |
 |:--:|:--:|
-| ![Linear RMSE Comparison](paper_figures/ldata_compare_rmse.png) | ![Linear V1 Fields](paper_figures/ldata_v1_fields.png) |
-| RMSE comparison (V1 / V2 / LETKF) | V1 SSH / velocity / SST field snapshots |
+| ![Linear V1 RMSE](figures/linear_v1_rmse.png) | ![Linear V2 RMSE](figures/linear_v2_rmse.png) |
+| V1 RMSE timeseries vs HYCOM | V2 RMSE timeseries vs HYCOM |
+| ![Linear V1 SSH Comparison](figures/linear_v1_compare_ssh.png) | |
+| SSH field: Forecast vs Analysis vs HYCOM | |
 
 ### 2b-i. MLSWE — Nonlinear Data Model with Real Data
 
@@ -1497,8 +1499,10 @@ nohup python3 -u run_mlswe_lsmcmc_nlrealdata_V2.py \
 
 | | |
 |:--:|:--:|
-| ![Observation Pattern](paper_figures/mlswe_obs_pattern.png) | ![Velocity Timeseries](paper_figures/mlswe_results_vel_timeseries.png) |
-| MLSWE observation pattern (drifters + SWOT) | Velocity timeseries at most-observed cells |
+| ![NL Real V1 RMSE](figures/nl_real_v1_rmse.png) | ![NL Real V2 RMSE](figures/nl_real_v2_rmse.png) |
+| V1 RMSE timeseries vs HYCOM | V2 RMSE timeseries vs HYCOM |
+| ![NL Real V2 SSH](figures/nl_real_v2_ssh_ts.png) | ![NL Real V2 Velocity](figures/nl_real_v2_vel_ts.png) |
+| V2 SSH timeseries at selected grid points | V2 velocity/SST timeseries vs HYCOM |
 
 ### 2b-ii. MLSWE — Nonlinear Data Model with Synthetic Twin Data
 
@@ -1530,8 +1534,12 @@ nohup python3 -u run_mlswe_lsmcmc_nldata_V2_twin.py \
 
 | | |
 |:--:|:--:|
-| ![NL Twin RMSE Comparison](paper_figures/nltwin_compare_rmse.png) | ![NL Twin V1 Fields](paper_figures/nltwin_v1_fields.png) |
-| RMSE comparison (V1 pCN / V1 HMC / V2 / LETKF) | V1 SSH / velocity / SST field snapshots |
+| ![Twin V1 RMSE](figures/nl_twin_v1_rmse.png) | ![Twin V2 RMSE](figures/nl_twin_v2_rmse.png) |
+| V1 RMSE timeseries vs truth | V2 RMSE timeseries vs truth |
+| ![Twin V1 SSH](figures/nl_twin_v1_ssh_ts.png) | ![Twin V2 SSH](figures/nl_twin_v2_ssh_ts.png) |
+| V1 SSH timeseries: truth vs analysis | V2 SSH timeseries: truth vs analysis |
+| ![Twin V1 Velocity](figures/nl_twin_v1_vel_ts.png) | |
+| V1 velocity timeseries: truth vs analysis | |
 
 ### 2c. MLSWE — Cauchy (Non-Gaussian) Noise Twin Experiments
 
@@ -1609,7 +1617,7 @@ The **Linear Gaussian** experiment (under `linear_gaussian/`) is
 fully self-contained — run `linear_gaussian/linear_forward_generate_data.py`
 to create its own synthetic data; no external downloads are needed.
 
-See [`reproduce_figures.ipynb`](reproduce_figures.ipynb) for
+See [`LSMCMC.ipynb`](LSMCMC.ipynb) for
 detailed per-experiment data instructions.
 
 ---
@@ -1675,11 +1683,18 @@ MLSWE_LSMCMC/
 ├── generate_localization_illustration.py  # V1 vs V2 localization diagram
 ├── generate_paper_figures.py           # All paper figures
 ├── generate_all_figures.py            # Runs all 3 figure scripts in one command
-├── reproduce_figures.ipynb             # Jupyter notebook: running guide + figure reproduction
+├── LSMCMC.ipynb                        # Jupyter notebook: running guide + figure reproduction
 ├── run_v2_after_v1.sh                  # Helper: run V2 after V1 completes
+├── run_nlgamma_sequential.sh           # Helper: run Cauchy experiments sequentially
 ├── example_input_mlswe_*.yml           # YAML configs for MLSWE experiments
-├── paper_figures/                      # All 19 paper figures (PDF + PNG)
-├── data/                               # Input data (not in repo — see Data Preparation)
+├── paper/                              # Manuscript (JAMES format)
+│   ├── LSMCMC_filter.tex               # Main LaTeX source (standalone)
+│   ├── agujournal2019 template/        # JAMES-formatted version
+│   │   ├── LSMCMC_filter_JAMES.tex
+│   │   ├── references.bib
+│   │   └── figures/
+│   └── figures/                        # Shared figure PDFs
+├── data/                               # Input data
 │   ├── etopo_bathy_*.npy               # Bathymetry
 │   ├── gdp_hourly_*.csv                # Drifter observations
 │   ├── hycom_bc.nc                     # HYCOM boundary conditions
@@ -1699,6 +1714,10 @@ MLSWE_LSMCMC/
 ├── output_nlgamma_twin_V2*/            # Cauchy V2 twin outputs (m=1,2,3,4)
 ├── output_letkf/                       # LETKF output NetCDF
 ├── comparison_plots/                   # Generated comparison figures
+├── requirements.txt                    # Python dependencies (pip)
+├── environment.yml                     # Conda environment (also used by Binder)
+├── LICENSE                             # MIT License
+├── CITATION.cff                        # Machine-readable citation metadata
 └── README.md
 ```
 
@@ -1999,7 +2018,7 @@ python3 plot_lsmcmc_vs_letkf.py
 python3 generate_localization_illustration.py
 ```
 
-Generates `paper_figures/localization_v1_v2_illustration.pdf` showing how V1
+Generates `figures/localization_v1_v2_illustration.png` showing how V1
 and V2 partition the domain and assign observations.
 
 ### Cauchy (Non-Gaussian) Noise Figures
@@ -2020,11 +2039,11 @@ This runs `generate_paper_figures.py`, `generate_nlgamma_figures.py`, and
 `regen_timeseries_1x2.py` in sequence.  All output is saved to
 `paper_figures/`.
 
-Alternatively, the Jupyter notebook `reproduce_figures.ipynb` reproduces
+Alternatively, the Jupyter notebook `LSMCMC.ipynb` reproduces
 all 19 figures interactively and displays them inline:
 
 ```bash
-jupyter notebook reproduce_figures.ipynb
+jupyter notebook LSMCMC.ipynb
 ```
 
 ### Output Plot Files
@@ -2093,11 +2112,12 @@ pip install numpy scipy netCDF4 pyyaml matplotlib
 If you use this code in your research, please cite:
 
 ```bibtex
-@article{Ruzayqat2026LSMCMC,
+@article{Ruzayqat2025LSMCMC,
   author  = {Ruzayqat, Hamza and Chipilski, Hristo G. and Knio, Omar},
   title   = {Two Localization Strategies for Sequential {MCMC} Data
              Assimilation with Applications to Nonlinear Non-{Gaussian}
              Geophysical Models},
-  year    = {2026}
+  journal = {Journal of Advances in Modeling Earth Systems},
+  year    = {2025}
 }
 ```

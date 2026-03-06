@@ -449,7 +449,7 @@ def main():
     print("  1. Generate drifter obs:    python3 generate_drifter_obs.py")
     print("  2. Pre-bin SWOT SSH:        python3 prebin_swot_ssh.py")
     print("  3. Fill synthetic SWOT:     python3 generate_synthetic_swot.py")
-    print("  4. Run experiments — see reproduce_figures.ipynb")
+    print("  4. Run experiments — see LSMCMC.ipynb")
 
 
 if __name__ == '__main__':
