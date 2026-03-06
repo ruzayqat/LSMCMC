@@ -329,9 +329,7 @@ Raw SWOT L2 LR NetCDF files contain several SSH-related variables that
 must be combined to obtain ADT comparable to model $\eta$:
 
 $$
-\texttt{ADT} = \texttt{ssha\textunderscore karin} +
-             \texttt{height\textunderscore cor\textunderscore xover} +
-             \underbrace{(\texttt{MSS}_{\text{CNES/CLS}} - \texttt{geoid})}_{\text{MDT}}
+\texttt{ADT} = \texttt{ssha\textunderscore karin} +\texttt{height\textunderscore xover} +\underbrace{(\texttt{MSS}_{\text{CNESCLS}} - \texttt{geoid})}_{\text{MDT}}
 $$
 
 | Variable | Description |
@@ -546,11 +544,15 @@ to the full observation vector.
 - **Likelihood $g$:** The observation operator $\mathbf{H}$ is restricted
   to the observed blocks. In the linear case,
 
-  $$g(z_{\text{loc}}, \mathbf{y}) = \mathcal{N}(\mathbf{y};\; \mathbf{H}_{\text{loc}}\, z_{\text{loc}},\; \boldsymbol{\Sigma}_y)$$
+  $$
+  g(z_{\text{loc}}, \mathbf{y}) = \mathcal{N}(\mathbf{y};\; \mathbf{H}_{\text{loc}}\, z_{\text{loc}},\; \boldsymbol{\Sigma}_y)
+  $$
 
   In the nonlinear case,
 
-  $$g(z_{\text{loc}}, \mathbf{y}) = \mathcal{N}(\mathbf{y};\; \arctan(\mathbf{H}_{\text{loc}}\, z_{\text{loc}}),\; \boldsymbol{\Sigma}_y)$$
+  $$
+  g(z_{\text{loc}}, \mathbf{y}) = \mathcal{N}(\mathbf{y};\; \arctan(\mathbf{H}_{\text{loc}}\, z_{\text{loc}}),\; \boldsymbol{\Sigma}_y)
+  $$
 
   All observations in the union of observed blocks contribute with equal
   weight — no spatial tapering is applied.

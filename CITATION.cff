@@ -11,10 +11,6 @@ authors:
   - family-names: Ruzayqat
     given-names: Hamza
     orcid: "https://orcid.org/0000-0001-5966-3581"
-  - family-names: Chipilski
-    given-names: Hristo G.
-  - family-names: Knio
-    given-names: Omar
 license: MIT
 repository-code: "https://github.com/ruzayqat/LSMCMC"
 date-released: "2026-03-06"
