@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/854202210.svg)](https://doi.org/10.5281/zenodo.18888945)
+
 # MLSWE\_LSMCMC — Multi-Layer Shallow-Water Equations with Data Assimilation
 
 Companion code for:
