@@ -2112,12 +2112,12 @@ pip install numpy scipy netCDF4 pyyaml matplotlib
 If you use this code in your research, please cite:
 
 ```bibtex
-@article{Ruzayqat2025LSMCMC,
+@article{Ruzayqat2026LSMCMC,
   author  = {Ruzayqat, Hamza and Chipilski, Hristo G. and Knio, Omar},
   title   = {Two Localization Strategies for Sequential {MCMC} Data
              Assimilation with Applications to Nonlinear Non-{Gaussian}
              Geophysical Models},
   journal = {Journal of Advances in Modeling Earth Systems},
-  year    = {2025}
+  year    = {2026}
 }
 ```
