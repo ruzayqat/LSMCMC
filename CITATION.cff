@@ -1,0 +1,34 @@
+cff-version: 1.0.0
+title: >-
+  LSMCMC: Two Localization Strategies for Sequential MCMC
+  Data Assimilation with Applications to Nonlinear
+  Non-Gaussian Geophysical Models
+message: >-
+  If you use this software, please cite the associated paper
+  and this repository.
+type: software
+authors:
+  - family-names: Ruzayqat
+    given-names: Hamza
+    orcid: "https://orcid.org/0000-0001-5966-3581"
+  - family-names: Chipilski
+    given-names: Hristo G.
+  - family-names: Knio
+    given-names: Omar
+license: MIT
+repository-code: "https://github.com/ruzayqat/LSMCMC"
+date-released: "2026-03-06"
+preferred-citation:
+  type: article
+  authors:
+    - family-names: Ruzayqat
+      given-names: Hamza
+    - family-names: Chipilski
+      given-names: Hristo G.
+    - family-names: Knio
+      given-names: Omar
+  title: >-
+    Two Localization Strategies for Sequential MCMC Data
+    Assimilation with Applications to Nonlinear Non-Gaussian
+    Geophysical Models
+  year: 2026
