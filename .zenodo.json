@@ -1,27 +1,20 @@
 {
-  "title": "LSMCMC: Two Localization Strategies for Sequential MCMC Data Assimilation with Applications to Nonlinear Non-Gaussian Geophysical Models",
-  "description": "Code repository for the paper: Two Localization Strategies for Sequential MCMC Data Assimilation with Applications to Nonlinear Non-Gaussian Geophysical Models. Implements Localized Sequential Markov Chain Monte Carlo (LSMCMC) methods for data assimilation in the multilevel shallow water equations model.",
+  "title": "Two Localization Strategies for Sequential MCMC Data Assimilation with Applications to Nonlinear Non-Gaussian Geophysical Models",
+  "version": "v1.0.0",
+  "publication_date": "2026-03-06",
   "upload_type": "software",
   "creators": [
     {
       "name": "Ruzayqat, Hamza",
-      "orcid": "0000-0001-5966-3581"
+      "orcid": "https://orcid.org/0000-0002-6394-0695"
     }
   ],
-  "license": "MIT",
+  "description": "Software accompanying the paper 'Two Localization Strategies for Sequential MCMC Data Assimilation with Applications to Nonlinear Non-Gaussian Geophysical Models'.",
   "keywords": [
     "data assimilation",
-    "sequential Monte Carlo",
-    "MCMC",
+    "sequential MCMC",
+    "SMCMC",
     "localization",
-    "shallow water equations",
-    "geophysical models"
-  ],
-  "related_identifiers": [
-    {
-      "identifier": "https://github.com/ruzayqat/LSMCMC",
-      "relation": "isSupplementTo",
-      "scheme": "url"
-    }
+    "non-Gaussian filtering"
   ]
 }
