@@ -329,9 +329,9 @@ Raw SWOT L2 LR NetCDF files contain several SSH-related variables that
 must be combined to obtain ADT comparable to model $\eta$:
 
 $$
-\text{ADT} = \text{ssha\_karin}
-           + \text{height\_cor\_xover}
-           + \underbrace{(\text{MSS}_{\text{CNES/CLS}} - \text{geoid})}_{\text{MDT}}
+\mathtt{ADT} = \mathtt{ssha\_karin}
+             + \mathtt{height\_cor\_xover}
+             + \underbrace{(\mathtt{MSS}_{\text{CNES/CLS}} - \mathtt{geoid})}_{\text{MDT}}
 $$
 
 | Variable | Description |
