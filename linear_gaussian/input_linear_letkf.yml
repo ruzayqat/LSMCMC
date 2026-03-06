@@ -1,0 +1,25 @@
+# input_linear_letkf.yml
+# ======================
+# Configuration for the linear Gaussian LETKF run.
+#
+# Model:  Z_{k+1} = a * Z_k + sigma_z * W,   d = 120×120 = 14400
+# Obs:    Y_k = C_k * Z_k + sigma_y * V  (SWOT-like swath)
+
+# ---- Ensemble ----
+K: 50                   # ensemble size
+seed: 42                # random seed
+
+# ---- Localisation ----
+hscale: 1.0             # GC taper half-scale (grid points)
+
+# ---- Inflation ----
+covinflate1: 1.02       # multiplicative covariance inflation
+
+# ---- Sensitivity best params ----
+# Set to true to override K, hscale, covinflate1 with values
+# from letkf_sensitivity_results.json
+use_best: true
+
+# ---- I/O ----
+# data: linear_gaussian_data.npz       # input data (default: auto)
+# outdir: .                             # output directory (default: same as script)

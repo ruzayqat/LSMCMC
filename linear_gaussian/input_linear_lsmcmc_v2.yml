@@ -1,0 +1,31 @@
+# input_linear_lsmcmc_v2.yml
+# ==========================
+# Configuration for the linear Gaussian LSMCMC V2 run.
+# V2 = per-block halo localization with Gaspari-Cohn tapering.
+#
+# Model:  Z_{k+1} = a * Z_k + sigma_z * W,   d = 120×120 = 14400
+# Obs:    Y_k = C_k * Z_k + sigma_y * V  (SWOT-like swath)
+
+# ---- Parallel execution ----
+M: 4                    # number of independent LSMCMC runs (set >1 to average)
+workers: 4              # number of parallel workers for M runs (use >1 only when M>1)
+ncores: 0               # cores for block-level parallelism within each run (0 = auto-detect)
+
+# ---- Domain partitioning ----
+Gamma: 2400              # number of blocks (must divide 14400 evenly)
+                         # 90  -> 9×10 blocks of ~13×12 cells
+                         # 900 -> 30×30 blocks of 4×4 cells
+
+# ---- Localization ----
+r_loc: 1.0              # halo radius in grid points (GC taper applied)
+
+# ---- Inflation ----
+rtps_alpha: 0.02         # RTPS (relaxation to prior spread), 0 = off
+
+# ---- Sampling ----
+Na: 500                 # number of posterior samples drawn per cycle
+Nf: 50                  # forecast ensemble size
+
+# ---- I/O ----
+# data: linear_gaussian_data.npz       # input data (default: auto)
+# outdir: lsmcmc_v2_output              # output directory (default: lsmcmc_v2_output)

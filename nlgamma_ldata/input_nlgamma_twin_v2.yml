@@ -1,0 +1,112 @@
+# input_nlgamma_twin_v2.yml
+# ==========================
+# NL-Gamma twin experiment — V2: **correct Gamma likelihood** in MCMC.
+#
+# Uses the SAME nature run + synthetic obs as V1 (from output_nlgamma_twin_V1/).
+# The V2 filter knows the true Gamma(k,θ) noise model and evaluates
+# the correct log-likelihood inside the per-block MCMC.
+
+# ---- Parallel execution ----
+ncores: 52
+nsimu: 1
+workers: 52
+
+# ---- Time stepping ----
+T: 11520
+dt: 75.0
+t_freq: 48
+assim_timesteps: 48
+nassim: 240
+
+# ---- Grid ----
+dgx: 80
+dgy: 70
+lon_min: -60.0
+lon_max: -20.0
+lat_min: 10.0
+lat_max: 45.0
+
+# ---- Multi-layer model parameters ----
+precision: 'double'
+g: 9.81
+H_mean: 4000.0
+rho: [1023.0, 1026.0, 1028.0]
+H_rest: [100.0, 400.0, 3500.0]
+T_rest: [298.15, 283.15, 275.15]
+bottom_drag: 1.0e-6
+sst_nudging_rate: 0.000278
+sst_nudging_ref_source: 'hycom'
+ssh_relax_rate: 9.3e-5
+ssh_relax_interior_floor: 0.10
+ssh_analysis_relax_frac: 0.0
+sst_flux_type: 'newtonian'
+sst_alpha: 100.0
+sst_h_mix: 0.1
+diff_coeff: 500.0
+diff_order: 1
+tracer_diff: 100.0
+
+# ---- Bathymetry ----
+bathymetry_file: null
+download_bathymetry: True
+H_min: 500.0
+bathy_r_max: 0.2
+
+# ---- Island / shallow-water damping ----
+shallow_drag_depth: 800.0
+shallow_drag_coeff: 5.0e-4
+
+# ---- Boundary conditions ----
+bc_file: ./data/hycom_bc_2024aug.nc
+alpha_h: [0.6, 0.3, 0.1]
+beta_vel: [1.0, 1.0, 1.0]
+bc_n_ghost: 2
+sponge_width: 8
+sponge_timescale: 3600.0
+geostrophic_blend: 0.5
+
+# ---- Process noise (Gaussian) ----
+sig_x_uv: 0.15
+sig_x_ssh: 0.5
+sig_x_sst: 1.0
+noise_decay: [1.0, 0.01, 0.01]
+
+# ---- Observation noise ----
+# h(x)=arctan(x): output bounded to [-π/2, π/2]; uniform sig_y
+sig_y_uv: 0.05
+sig_y_sst: 0.05
+sig_y_ssh: 0.05
+
+# ---- Student-t noise parameters ----
+# ν=1 → Cauchy distribution
+student_t_nu: 1.0
+
+# ---- Observations ----
+assimilate_fields: 'uv_ssh_sst'
+obs_file: ./data/obs_2024aug/swe_drifter_obs.nc
+obs_time_start: '2024-08-01T00:00:00'
+obs_time_end: '2024-08-12T00:00:00'
+linear_merged_obs: ./output_lsmcmc_ldata_V1/mlswe_merged_obs.nc
+
+# ---- LSMCMC V2 parameters (halo-localized MCMC) ----
+nforecast: 25
+mcmc_N: 2000
+burn_in: 500
+r_loc: 1.5
+num_subdomains: 700
+rtps_alpha: 0.0
+n_block_workers: 25
+
+# MCMC tuning
+mcmc_kernel: 'pcn'
+mcmc_step_size: 0.05
+mcmc_adapt: true
+mcmc_adapt_interval: 25
+mcmc_target_acc: 0.35
+mcmc_thin: 1
+pcn_beta: 0.95
+hmc_leapfrog_steps: 10
+
+# ---- Output ----
+lsmcmc_dir: ./output_nlgamma_twin_V2
+data_dir: ./data

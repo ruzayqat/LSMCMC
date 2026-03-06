@@ -1,0 +1,132 @@
+# example_input_mlswe_nldata_V2_twin.yml
+# =======================================
+# Twin experiment config for NL-LSMCMC V2 (per-block localization).
+#
+# Same as nl_twin.yml but uses V2-specific parameters:
+#   r_loc, rtps_alpha, reset_interval, n_block_workers.
+
+# ---- Parallel execution ----
+ncores: 50
+nsimu: 1
+
+# ---- Time stepping ----
+T: 11520
+dt: 75.0
+t_freq: 48
+assim_timesteps: 48
+nassim: 240
+
+# ---- Grid ----
+dgx: 80
+dgy: 70
+lon_min: -60.0
+lon_max: -20.0
+lat_min: 10.0
+lat_max: 45.0
+
+# ---- Multi-layer model parameters ----
+precision: 'double'
+g: 9.81
+H_mean: 4000.0
+rho: [1023.0, 1026.0, 1028.0]
+H_rest: [100.0, 400.0, 3500.0]
+T_rest: [298.15, 283.15, 275.15]
+bottom_drag: 1.0e-6
+
+# SST nudging
+sst_nudging_rate: 0.000278
+sst_nudging_ref_source: 'hycom'
+
+# SSH relaxation
+ssh_relax_rate: 9.3e-5
+ssh_analysis_relax_frac: 0.0
+
+# Surface heat flux
+sst_flux_type: 'newtonian'
+sst_alpha: 100.0
+sst_h_mix: 0.1
+
+# Diffusion
+diff_coeff: 500.0
+diff_order: 1
+tracer_diff: 100.0
+
+# ---- Bathymetry ----
+bathymetry_file: null
+download_bathymetry: True
+H_min: 500.0
+bathy_r_max: 0.2
+
+# ---- Island / shallow-water damping ----
+shallow_drag_depth: 800.0
+shallow_drag_coeff: 5.0e-4
+
+# ---- Boundary conditions ----
+bc_file: ./data/hycom_bc_2024aug.nc
+alpha_h: [0.6, 0.3, 0.1]
+beta_vel: [1.0, 1.0, 1.0]
+bc_n_ghost: 2
+sponge_width: 8
+sponge_timescale: 3600.0
+geostrophic_blend: 0.0
+
+# ---- Process noise ----
+sig_x_uv: 0.15
+sig_x_ssh: 0.5
+sig_x_sst: 1.0
+noise_decay: [1.0, 0.01, 0.01]
+
+# ---- Observations (locations from real file, values synthetic) ----
+drifter_source: 'osmc'
+obs_time_start: '2024-08-01T00:00:00'
+obs_time_end: '2024-08-12T00:00:00'
+
+assimilate_fields: 'uv_ssh_sst'
+
+# Observation noise for synthetic obs generation
+sig_y_uv: 0.10
+sig_y_sst: 0.40
+sig_y_ssh: 0.50
+
+# ---- Nonlinear LSMCMC V2 parameters ----
+nforecast: 25
+mcmc_N: 2000
+burn_in: 500
+num_subdomains: 700
+
+# Per-block halo localization (V2-specific)
+r_loc: 1.5
+rtps_alpha: 0.0
+gc_noise_inflate: false
+reset_interval: 0
+n_block_workers: 25
+
+# MCMC tuning  (kernel: gibbs_mh | pcn | mala | hmc)
+mcmc_kernel: 'pcn'
+mcmc_step_size: 0.05
+mcmc_adapt: true
+mcmc_adapt_interval: 25
+mcmc_target_acc: 0.35
+mcmc_thin: 1
+pcn_beta: 0.3
+hmc_leapfrog_steps: 10
+
+# ---- Output ----
+lsmcmc_dir: ./output_lsmcmc_nldata_twin_V2
+data_dir: ./data
+
+# ---- Source observation file (for locations only) ----
+obs_file: ./data/obs_2024aug/swe_drifter_obs.nc
+
+# ---- SWOT SSH observations ----
+use_swot_ssh: True
+swot_source: 'real'
+swot_dir: ./data/swot_2024aug_new
+ssh_obs_fraction: 0.15
+ssh_obs_seed: 42
+
+# ---- Linear case merged obs (for SSH obs locations) ----
+linear_merged_obs: ./output_lsmcmc_ldata_V1/mlswe_merged_obs.nc
+
+# ---- Twin experiment seed ----
+twin_rng_seed: 42

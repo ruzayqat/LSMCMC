@@ -1,0 +1,139 @@
+# example_input_mlswe_ldata_V2.yml
+# =================================
+# Configuration for the 3-layer MLSWE model with localized LSMCMC (V2).
+#
+# Uses per-block halo-based localization with Gaspari-Cohn tapering,
+# following the approach from loc_smcmc_sqg_exact_from_Gauss.py.
+# All ensemble members are initialised identically (SMCMC theory).
+#
+# 3-layer primitive equations (Boussinesq, hydrostatic):
+#   Layer 0 (surface / mixed layer):  rho0 = 1023 kg/m3,  H_rest = 100 m
+#   Layer 1 (thermocline):            rho1 = 1026 kg/m3,  H_rest = 400 m
+#   Layer 2 (deep):                   rho2 = 1028 kg/m3,  H_rest = 3500 m
+
+# ---- Parallel execution ----
+ncores: 50
+M: 1                    # number of independent runs (1 = single run)
+workers: 50              # max parallel workers for M > 1 runs
+
+# ---- Time stepping ----
+# dt=75s, t_freq=48 -> assimilate every 3600 s = 1 hour
+T: 11520            # 240 cycles x 48 steps/cycle = 10 days
+dt: 75.0
+t_freq: 48
+assim_timesteps: 48
+nassim: 240         # number of assimilation cycles
+
+# ---- Grid ----
+dgx: 80
+dgy: 70
+lon_min: -60.0
+lon_max: -20.0
+lat_min: 10.0
+lat_max: 45.0
+
+# ---- Multi-layer model parameters ----
+precision: 'double'
+g: 9.81
+H_mean: 4000.0
+
+# Layer densities (kg/m3), surface -> deep
+rho: [1023.0, 1026.0, 1028.0]
+
+# Rest-state layer thicknesses (m)
+H_rest: [100.0, 400.0, 3500.0]
+
+# Rest-state layer temperatures (K)
+T_rest: [298.15, 283.15, 275.15]
+
+# Bottom drag (only applied to bottom layer)
+bottom_drag: 1.0e-6
+
+# SST nudging
+sst_nudging_rate: 0.000278
+sst_nudging_ref_source: 'hycom'
+
+# SSH relaxation
+ssh_relax_rate: 9.3e-5
+ssh_analysis_relax_frac: 0.0
+
+# Surface heat flux
+sst_flux_type: 'newtonian'
+sst_alpha: 100.0
+sst_h_mix: 0.1
+
+# Diffusion
+diff_coeff: 500.0
+diff_order: 1
+tracer_diff: 100.0
+# Geostrophic blending (0.0=HYCOM, 1.0=Geostrophic)
+geostrophic_blend: 0.0
+
+# ---- Bathymetry ----
+bathymetry_file: null
+download_bathymetry: True
+H_min: 500.0
+bathy_r_max: 0.2
+
+# ---- Island / shallow-water damping ----
+shallow_drag_depth: 800.0
+shallow_drag_coeff: 5.0e-4
+
+# ---- Boundary conditions ----
+bc_file: ./data/hycom_bc_2024aug.nc
+alpha_h: [0.6, 0.3, 0.1]
+beta_vel: [1.0, 1.0, 1.0]
+bc_n_ghost: 2
+sponge_width: 8
+sponge_timescale: 3600.0
+
+# ---- Process noise ----
+sig_x_uv: 0.15
+sig_x_ssh: 0.2
+sig_x_sst: 1.0
+noise_decay: [1.0, 0.01, 0.01]
+
+# ---- Observations ----
+drifter_source: 'osmc'
+obs_time_start: '2024-08-01T00:00:00'
+obs_time_end: '2024-08-12T00:00:00'
+
+assimilate_fields: 'uv_ssh_sst'
+
+# Observation noise
+sig_y_uv: 0.10
+sig_y_sst: 0.40
+sig_y_ssh: 0.25
+
+# ---- Localized LSMCMC (V2) parameters ----
+nforecast: 25
+mcmc_N: 500
+burn_in: 500
+num_subdomains: 1400
+
+# Per-block halo localization (from SQG approach)
+r_loc: 2.5                 # localization radius in grid points
+rtps_alpha: 0.5             # RTPS relaxation-to-prior-spread coefficient
+reset_interval: 100         # periodic ensemble reset interval (0 = disabled)
+n_block_workers: 104         # threads for parallel block processing
+
+# ---- LETKF parameters (if also running LETKF for comparison) ----
+nanals: 25
+hcovlocal_scale: 200
+covinflate1: 0.95
+
+# ---- Output ----
+lsmcmc_dir: ./output_lsmcmc_ldata_V2
+letkf_dir: ./output_letkf
+data_dir: ./data
+
+# ---- Observation file ----
+obs_file: ./data/obs_2024aug/swe_drifter_obs.nc
+
+# ---- SWOT SSH observations ----
+use_swot_ssh: True
+swot_source: 'real'
+swot_dir: ./data/swot_2024aug_new
+ssha_max: null
+ssh_obs_fraction: 0.15
+ssh_obs_seed: 42

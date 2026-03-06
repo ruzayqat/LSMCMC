@@ -1,0 +1,99 @@
+# example_input_mlswe_letkf_nl_sensitivity.yml
+# ==============================================
+# Shorter 120-cycle config for NL-LETKF sensitivity grid search.
+# Same physics as the full twin config but half the cycles to save time.
+
+# ---- Parallel execution ----
+ncores: 50
+nsimu: 1
+
+# ---- Time stepping (120 cycles) ----
+T: 5760
+dt: 75.0
+t_freq: 48
+assim_timesteps: 48
+nassim: 120
+
+# ---- Grid ----
+dgx: 80
+dgy: 70
+lon_min: -60.0
+lon_max: -20.0
+lat_min: 10.0
+lat_max: 45.0
+
+# ---- Multi-layer model parameters ----
+precision: 'double'
+g: 9.81
+H_mean: 4000.0
+rho: [1023.0, 1026.0, 1028.0]
+H_rest: [100.0, 400.0, 3500.0]
+T_rest: [298.15, 283.15, 275.15]
+bottom_drag: 1.0e-6
+
+# SST nudging
+sst_nudging_rate: 0.000278
+sst_nudging_ref_source: 'hycom'
+
+# SSH relaxation
+ssh_relax_rate: 9.3e-5
+ssh_relax_interior_floor: 0.10
+ssh_analysis_relax_frac: 0.0
+
+# Surface heat flux
+sst_flux_type: 'newtonian'
+sst_alpha: 100.0
+sst_h_mix: 0.1
+
+# Diffusion
+diff_coeff: 500.0
+diff_order: 1
+tracer_diff: 100.0
+
+# ---- Bathymetry ----
+bathymetry_file: null
+download_bathymetry: True
+H_min: 500.0
+bathy_r_max: 0.2
+
+# ---- Island / shallow-water damping ----
+shallow_drag_depth: 800.0
+shallow_drag_coeff: 5.0e-4
+
+# ---- Boundary conditions ----
+bc_file: ./data/hycom_bc_2024aug.nc
+alpha_h: [0.6, 0.3, 0.1]
+beta_vel: [1.0, 1.0, 1.0]
+bc_n_ghost: 2
+sponge_width: 8
+sponge_timescale: 3600.0
+geostrophic_blend: 0.5
+
+# ---- Process noise ----
+sig_x_uv: 0.15
+sig_x_ssh: 0.5
+sig_x_sst: 1.0
+noise_decay: [1.0, 0.01, 0.01]
+
+# ---- Observations (synthetic arctan obs from twin runner) ----
+drifter_source: 'osmc'
+obs_time_start: '2024-08-01T00:00:00'
+obs_time_end: '2024-08-12T00:00:00'
+
+assimilate_fields: 'uv_ssh_sst'
+
+sig_y_uv: 0.10
+sig_y_sst: 0.40
+sig_y_ssh: 0.50
+
+# ---- LETKF parameters ----
+nanals: 25
+hcovlocal_scale: 100
+covinflate1: 0.5
+
+# ---- Twin experiment paths ----
+twin_dir: ./output_lsmcmc_nldata_V1
+
+# ---- Output ----
+letkf_dir: ./output_letkf_nl_sensitivity
+data_dir: ./data

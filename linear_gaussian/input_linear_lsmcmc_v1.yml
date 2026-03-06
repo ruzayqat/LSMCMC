@@ -1,0 +1,24 @@
+# input_linear_lsmcmc_v1.yml
+# ==========================
+# Configuration for the linear Gaussian LSMCMC V1 run.
+# V1 = joint observed-block localization (union of all observed blocks).
+#
+# Model:  Z_{k+1} = a * Z_k + sigma_z * W,   d = 120×120 = 14400
+# Obs:    Y_k = C_k * Z_k + sigma_y * V  (SWOT-like swath)
+
+# ---- Parallel execution ----
+M: 1                    # number of independent LSMCMC runs (set >1 to average)
+workers: 1              # number of parallel workers for M runs (use >1 only when M>1)
+ncores: 0               # cores for block-level parallelism within each run (0 = auto)
+
+# ---- Domain partitioning ----
+Gamma: 900              # number of blocks (must divide 14400 evenly)
+
+# ---- Sampling ----
+Na: 500                 # number of posterior samples drawn per cycle
+burn_in: 300            # burn-in (unused for exact Gaussian sampling, kept for compatibility)
+Nf: 50                   # forecast ensemble size
+
+# ---- I/O ----
+# data: linear_gaussian_data.npz       # input data (default: auto)
+# outdir: lsmcmc_v1_output              # output directory (default: lsmcmc_v1_output)
