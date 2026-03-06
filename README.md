@@ -643,7 +643,7 @@ The figure below illustrates both localization strategies. The left column shows
 simple domain partitioned into blocks; the right column shows how V1 (block union)
 and V2 (halo + tapering) handle the same observation pattern.
 
-![Localization V1 vs V2](figures/localization_v1_v2_illustration.png)
+![Localization V1 vs V2](paper_figures/localization_v1_v2_illustration.png)
 
 ### Additional Features in Variant 2
 
@@ -1429,9 +1429,9 @@ python3 -u linear_forward_run_lsmcmc_v1.py input_linear_letkf.yml
 
 | | |
 |:--:|:--:|
-| ![LG Observation Swaths](figures/lg_obs_swaths.png) | ![LG RMSE Timeseries](figures/lg_rmse_timeseries.png) |
+| ![LG Observation Swaths](paper_figures/lg_obs_swaths.png) | ![LG RMSE Timeseries](paper_figures/lg_rmse_timeseries.png) |
 | Synthetic swath observation pattern | RMSE timeseries showing filter convergence |
-| ![LG Snapshot](figures/lg_snapshot.png) | |
+| ![LG Snapshot](paper_figures/lg_snapshot.png) | |
 | Analysis snapshot at a single cycle | |
 
 ### 2a. MLSWE — Linear Data Model with Real Data
@@ -1468,9 +1468,9 @@ nohup python3 -u run_mlswe_lsmcmc_ldata_V2.py example_input_mlswe_ldata_V2.yml \
 
 | | |
 |:--:|:--:|
-| ![Linear V1 RMSE](figures/linear_v1_rmse.png) | ![Linear V2 RMSE](figures/linear_v2_rmse.png) |
+| ![Linear V1 RMSE](paper_figures/linear_v1_rmse.png) | ![Linear V2 RMSE](paper_figures/linear_v2_rmse.png) |
 | V1 RMSE timeseries vs HYCOM | V2 RMSE timeseries vs HYCOM |
-| ![Linear V1 SSH Comparison](figures/linear_v1_compare_ssh.png) | |
+| ![Linear V1 SSH Comparison](paper_figures/linear_v1_compare_ssh.png) | |
 | SSH field: Forecast vs Analysis vs HYCOM | |
 
 ### 2b-i. MLSWE — Nonlinear Data Model with Real Data
@@ -1509,9 +1509,9 @@ nohup python3 -u run_mlswe_lsmcmc_nlrealdata_V2.py \
 
 | | |
 |:--:|:--:|
-| ![NL Real V1 RMSE](figures/nl_real_v1_rmse.png) | ![NL Real V2 RMSE](figures/nl_real_v2_rmse.png) |
+| ![NL Real V1 RMSE](paper_figures/nl_real_v1_rmse.png) | ![NL Real V2 RMSE](paper_figures/nl_real_v2_rmse.png) |
 | V1 RMSE timeseries vs HYCOM | V2 RMSE timeseries vs HYCOM |
-| ![NL Real V2 SSH](figures/nl_real_v2_ssh_ts.png) | ![NL Real V2 Velocity](figures/nl_real_v2_vel_ts.png) |
+| ![NL Real V2 SSH](paper_figures/nl_real_v2_ssh_ts.png) | ![NL Real V2 Velocity](paper_figures/nl_real_v2_vel_ts.png) |
 | V2 SSH timeseries at selected grid points | V2 velocity/SST timeseries vs HYCOM |
 
 ### 2b-ii. MLSWE — Nonlinear Data Model with Synthetic Twin Data
@@ -1544,11 +1544,11 @@ nohup python3 -u run_mlswe_lsmcmc_nldata_V2_twin.py \
 
 | | |
 |:--:|:--:|
-| ![Twin V1 RMSE](figures/nl_twin_v1_rmse.png) | ![Twin V2 RMSE](figures/nl_twin_v2_rmse.png) |
+| ![Twin V1 RMSE](paper_figures/nl_twin_v1_rmse.png) | ![Twin V2 RMSE](paper_figures/nl_twin_v2_rmse.png) |
 | V1 RMSE timeseries vs truth | V2 RMSE timeseries vs truth |
-| ![Twin V1 SSH](figures/nl_twin_v1_ssh_ts.png) | ![Twin V2 SSH](figures/nl_twin_v2_ssh_ts.png) |
+| ![Twin V1 SSH](paper_figures/nl_twin_v1_ssh_ts.png) | ![Twin V2 SSH](paper_figures/nl_twin_v2_ssh_ts.png) |
 | V1 SSH timeseries: truth vs analysis | V2 SSH timeseries: truth vs analysis |
-| ![Twin V1 Velocity](figures/nl_twin_v1_vel_ts.png) | |
+| ![Twin V1 Velocity](paper_figures/nl_twin_v1_vel_ts.png) | |
 | V1 velocity timeseries: truth vs analysis | |
 
 ### 2c. MLSWE — Cauchy (Non-Gaussian) Noise Twin Experiments
