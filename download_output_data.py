@@ -32,7 +32,7 @@ from pathlib import Path
 # =============================================================================
 # Configuration — Update ZENODO_RECORD_ID after uploading to Zenodo
 # =============================================================================
-ZENODO_RECORD_ID = "XXXXXXX"  # TODO: Replace with actual Zenodo record ID after upload
+ZENODO_RECORD_ID = "18889551"  # Data DOI: 10.5281/zenodo.18889551
 ZENODO_FILENAME = "lsmcmc_output_data.zip"
 EXPECTED_SHA256 = None  # TODO: Set after upload for integrity verification
 
