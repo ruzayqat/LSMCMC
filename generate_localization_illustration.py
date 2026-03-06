@@ -199,10 +199,12 @@ for col in range(2):
             zorder=10)
 
 # -- Save ----------------------------------------------------------------------
-fig.savefig('figures/localization_v1_v2_illustration.pdf',
+import os
+os.makedirs('paper_figures', exist_ok=True)
+fig.savefig('paper_figures/localization_v1_v2_illustration.pdf',
             bbox_inches='tight', dpi=300)
-fig.savefig('figures/localization_v1_v2_illustration.png',
+fig.savefig('paper_figures/localization_v1_v2_illustration.png',
             bbox_inches='tight', dpi=300)
 plt.close()
-print("Saved: figures/localization_v1_v2_illustration.pdf")
-print("Saved: figures/localization_v1_v2_illustration.png")
+print("Saved: paper_figures/localization_v1_v2_illustration.pdf")
+print("Saved: paper_figures/localization_v1_v2_illustration.png")
