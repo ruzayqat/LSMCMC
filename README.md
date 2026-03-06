@@ -107,9 +107,9 @@ A single barotropic continuity equation governs the total thickness:
 
 $$
 \frac{\partial h_{\text{total}}}{\partial t}
-  = -\nabla \cdot \!\left(\sum_{k=0}^{2} h_k\,\mathbf{u}_k\right)
-    + \nu\,\nabla^2 h_{\text{total}}
-    - \lambda_{\text{ssh}}\bigl(\eta - \eta_{\text{ref}}(t)\bigr)
+  = -\nabla \cdot \!\left(\sum_{k=0}^{2} h_k\,\mathbf{u}_k\right) +
+    \nu\,\nabla^2 h_{\text{total}} -
+    \lambda_{\text{ssh}}\bigl(\eta - \eta_{\text{ref}}(t)\bigr)
 $$
 
 The last term is **SSH relaxation** toward a HYCOM reference
@@ -127,22 +127,22 @@ $$
 
 $$
 \frac{\partial u_k}{\partial t}
-  = -u_k\frac{\partial u_k}{\partial x}
-    - v_k\frac{\partial u_k}{\partial y}
-    + f\,v_k
-    - g\frac{\partial\eta}{\partial x}
-    - r_b\,u_k
-    + \nu\,\nabla^2 u_k
+  = -u_k\frac{\partial u_k}{\partial x} -
+    v_k\frac{\partial u_k}{\partial y} +
+    f\,v_k -
+    g\frac{\partial\eta}{\partial x} -
+    r_b\,u_k +
+    \nu\,\nabla^2 u_k
 $$
 
 $$
 \frac{\partial v_k}{\partial t}
-  = -u_k\frac{\partial v_k}{\partial x}
-    - v_k\frac{\partial v_k}{\partial y}
-    - f\,u_k
-    - g\frac{\partial\eta}{\partial y}
-    - r_b\,v_k
-    + \nu\,\nabla^2 v_k
+  = -u_k\frac{\partial v_k}{\partial x} -
+    v_k\frac{\partial v_k}{\partial y} -
+    f\,u_k -
+    g\frac{\partial\eta}{\partial y} -
+    r_b\,v_k +
+    \nu\,\nabla^2 v_k
 $$
 
 where:
@@ -163,10 +163,10 @@ where:
 
 $$
 \frac{\partial T_k}{\partial t}
-  = -u_k\frac{\partial T_k}{\partial x}
-    - v_k\frac{\partial T_k}{\partial y}
-    + \kappa_T\,\nabla^2 T_k
-    + \mathcal{F}_k
+  = -u_k\frac{\partial T_k}{\partial x} -
+    v_k\frac{\partial T_k}{\partial y} +
+    \kappa_T\,\nabla^2 T_k +
+    \mathcal{F}_k
 $$
 
 where $\kappa_T$ is the tracer diffusion coefficient (default 100 m² s⁻¹)
@@ -218,8 +218,8 @@ $$
 
 $$
 \nabla^2 q \approx
-  \frac{q_{i,j+1} - 2q_{i,j} + q_{i,j-1}}{\Delta x^2}
-  + \frac{q_{i+1,j} - 2q_{i,j} + q_{i-1,j}}{\Delta y^2}
+  \frac{q_{i,j+1} - 2q_{i,j} + q_{i,j-1}}{\Delta x^2} +
+  \frac{q_{i+1,j} - 2q_{i,j} + q_{i-1,j}}{\Delta y^2}
 $$
 
 Bi-harmonic diffusion (`diff_order=2`) is also supported by applying the
@@ -230,8 +230,8 @@ Laplacian twice with sign flip.
 Classical **4th-order Runge–Kutta** (RK4):
 
 $$
-\mathbf{x}^{n+1} = \mathbf{x}^n
-  + \frac{\Delta t}{6}\bigl(\mathbf{k}_1 + 2\mathbf{k}_2 + 2\mathbf{k}_3 + \mathbf{k}_4\bigr)
+\mathbf{x}^{n+1} = \mathbf{x}^n +
+  \frac{\Delta t}{6}\bigl(\mathbf{k}_1 + 2\mathbf{k}_2 + 2\mathbf{k}_3 + \mathbf{k}_4\bigr)
 $$
 
 Boundary conditions are re-applied at each sub-stage.
@@ -329,9 +329,9 @@ Raw SWOT L2 LR NetCDF files contain several SSH-related variables that
 must be combined to obtain ADT comparable to model $\eta$:
 
 $$
-\mathtt{ADT} = \mathtt{ssha\_karin}
-             + \mathtt{height\_cor\_xover}
-             + \underbrace{(\mathtt{MSS}_{\text{CNES/CLS}} - \mathtt{geoid})}_{\text{MDT}}
+\texttt{ADT} = \texttt{ssha\textunderscore karin} +
+             \texttt{height\textunderscore cor\textunderscore xover} +
+             \underbrace{(\texttt{MSS}_{\text{CNES/CLS}} - \texttt{geoid})}_{\text{MDT}}
 $$
 
 | Variable | Description |
@@ -439,8 +439,8 @@ Each mixture component has a Gaussian posterior with mean:
 
 $$
 \boldsymbol{\mu}_i
-  = \mathbf{m}_i
-    + \boldsymbol{\Sigma}_\mathbf{x}\,\mathbf{H}^T\,\mathbf{S}^{-1}
+  = \mathbf{m}_i +
+    \boldsymbol{\Sigma}_\mathbf{x}\,\mathbf{H}^T\,\mathbf{S}^{-1}
       (\mathbf{y} - \mathbf{H}\mathbf{m}_i)
 $$
 
@@ -460,9 +460,9 @@ $i$ with probability $w_i$, then draw:
 
 $$
 \mathbf{x}^*
-  = \boldsymbol{\mu}_i
-    + \mathbf{z}_0
-    - \boldsymbol{\Sigma}_\mathbf{x}\,\mathbf{H}^T\,\mathbf{S}^{-1}
+  = \boldsymbol{\mu}_i +
+    \mathbf{z}_0 -
+    \boldsymbol{\Sigma}_\mathbf{x}\,\mathbf{H}^T\,\mathbf{S}^{-1}
       (\mathbf{H}\mathbf{z}_0 + \mathbf{L}\boldsymbol{\eta})
 $$
 
@@ -534,7 +534,7 @@ are used in a single global posterior-sampling step.
 This approach treats the observed region as one connected local problem:
 
 $$
-\mathbf{x}_{\text{local}} = \bigl\{\mathbf{x}[c] \;:\; c \in \bigcup_{b \in \mathcal{B}_{\text{obs}}} \text{cells}(b)\bigr\}
+\mathbf{x}_{\text{local}} = \bigl\lbrace\mathbf{x}[c] \;:\; c \in \bigcup_{b \in \mathcal{B}_{\text{obs}}} \text{cells}(b)\bigr\rbrace
 $$
 
 where $\mathcal{B}_{\text{obs}}$ is the set of blocks containing
@@ -545,14 +545,20 @@ to the full observation vector.
 
 - **Likelihood $g$:** The observation operator $\mathbf{H}$ is restricted
   to the observed blocks. In the linear case,
-  $g(z_{\text{loc}}, \mathbf{y}) = \mathcal{N}(\mathbf{y};\, \mathbf{H}_{\text{loc}} z_{\text{loc}},\, \boldsymbol{\Sigma}_y)$.
+
+  $$g(z_{\text{loc}}, \mathbf{y}) = \mathcal{N}(\mathbf{y};\; \mathbf{H}_{\text{loc}}\, z_{\text{loc}},\; \boldsymbol{\Sigma}_y)$$
+
   In the nonlinear case,
-  $g(z_{\text{loc}}, \mathbf{y}) = \mathcal{N}(\mathbf{y};\, \arctan(\mathbf{H}_{\text{loc}} z_{\text{loc}}),\, \boldsymbol{\Sigma}_y)$.
+
+  $$g(z_{\text{loc}}, \mathbf{y}) = \mathcal{N}(\mathbf{y};\; \arctan(\mathbf{H}_{\text{loc}}\, z_{\text{loc}}),\; \boldsymbol{\Sigma}_y)$$
+
   All observations in the union of observed blocks contribute with equal
   weight — no spatial tapering is applied.
 
 - **Transition kernel $f$:** The prior
-  $f(\mathbf{m}_i, z) = \mathcal{N}(z;\, \mathbf{m}_i,\, \boldsymbol{\Sigma}_x)$
+
+  $$f(\mathbf{m}_i, z) = \mathcal{N}(z;\; \mathbf{m}_i,\; \boldsymbol{\Sigma}_x)$$
+
   is restricted to the same local indices: only the diagonal entries of
   $\boldsymbol{\Sigma}_x$ corresponding to the observed-block cells are used.
   Unobserved blocks retain their forecast mean unchanged.
@@ -564,7 +570,7 @@ to the full observation vector.
 
 **Disadvantages:**
 - The local state dimension can be large when many blocks are active,
-  increasing the cost of Cholesky factorization ($\mathcal{O}(d^3)$).
+  increasing the cost of Cholesky factorization $\mathcal{O}(d^3)$.
 - No spatial tapering — observations at the edge of an active block
   have the same influence as those at the centre.
 
@@ -603,7 +609,9 @@ $$
   tapering applies to the arctan likelihood.
 
 - **Transition kernel $f$:** The prior
-  $f(\mathbf{m}_i, z_{\text{halo}}) = \mathcal{N}(z_{\text{halo}};\, \mathbf{m}_{i,\text{halo}},\, \boldsymbol{\Sigma}_{x,\text{halo}})$
+
+  $$f(\mathbf{m}_i, z_{\text{halo}}) = \mathcal{N}(z_{\text{halo}};\; \mathbf{m}_{i,\text{halo}},\; \boldsymbol{\Sigma}_{x,\text{halo}})$$
+
   uses only the halo subset of the forecast. After sampling, only the
   **core block cells** are retained; halo margin cells are discarded.
   This means the transition kernel operates on a larger state than what
@@ -760,9 +768,9 @@ A **prior-preserving** proposal that is invariant under the transition
 kernel:
 
 $$
-z'_{nz} = \mathbf{m}_{i,nz}
-         + \sqrt{1 - \beta^2}\,(z_{nz} - \mathbf{m}_{i,nz})
-         + \beta\,\boldsymbol{\sigma}_{\mathbf{x},nz} \odot \boldsymbol{\xi}
+z'_{nz} = \mathbf{m}_{i,nz} +
+         \sqrt{1 - \beta^2}\,(z_{nz} - \mathbf{m}_{i,nz}) +
+         \beta\,\boldsymbol{\sigma}_{\mathbf{x},nz} \odot \boldsymbol{\xi}
 $$
 
 where $\beta \in (0,1)$ is the step-size parameter (`pcn_beta`).
@@ -783,12 +791,12 @@ $d^{-1/2}$. Optimal acceptance rate $\sim 40\%$.
 Gradient-informed proposal using the score function of the target:
 
 $$
-z' = z + \frac{\tau^2}{2}\,\boldsymbol{\sigma}_\mathbf{x}^2 \odot
-     \nabla_z \log\pi(z, i)
-   + \tau\,\boldsymbol{\sigma}_\mathbf{x} \odot \boldsymbol{\xi}
+z' = z + \frac{\tau^2}{2}\boldsymbol{\sigma}_\mathbf{x}^2 \odot
+     \nabla_z \log\pi(z, i) +
+   \tau\boldsymbol{\sigma}_\mathbf{x} \odot \boldsymbol{\xi}
 $$
 
-The proposal is **asymmetric** ($q(z'|z) \neq q(z|z')$), requiring a
+The proposal is **asymmetric** $(q(z'|z) \neq q(z|z'))$, requiring a
 Hastings correction with the reverse proposal density. Scales as
 $\mathcal{O}(d^{-1/3})$.
 
@@ -818,8 +826,8 @@ $$
   = \mathbf{H}^T\!\left[
     \frac{1}{1 + (\mathbf{H}z)^2} \odot
     \frac{\mathbf{y} - \arctan(\mathbf{H}z)}{\boldsymbol{\sigma}_\mathbf{y}^2}
-    \right]
-  - \frac{z - \mathbf{m}_i}{\boldsymbol{\sigma}_\mathbf{x}^2}
+    \right] -
+  \frac{z - \mathbf{m}_i}{\boldsymbol{\sigma}_\mathbf{x}^2}
 $$
 
 ### Adaptive Step-Size Tuning
@@ -952,8 +960,8 @@ Inverse analysis error covariance in ensemble space:
 
 $$
 \widetilde{\mathbf{P}}_a^{-1}
-  = (K-1)\,\mathbf{I}
-    + (\mathbf{Y}^b)^T\,\mathbf{R}_{\text{loc}}^{-1}\,\mathbf{Y}^b
+  = (K-1)\,\mathbf{I} +
+    (\mathbf{Y}^b)^T\,\mathbf{R}_{\text{loc}}^{-1}\,\mathbf{Y}^b
 $$
 
 where $\mathbf{R}_{\text{loc}} = \text{diag}\!\bigl(\sigma_y^2 / w_{\text{loc}}\bigr)$
@@ -1020,9 +1028,9 @@ Compactly supported 5th-order piecewise polynomial with cutoff $L$:
 $$
 \text{GC}(r) = \begin{cases}
   1 - \frac{5}{3}z^2 + \frac{5}{8}z^3 + \frac{1}{2}z^4 - \frac{1}{4}z^5
-    & 0 \leq r/L \leq 0.5 \\[6pt]
+    & 0 \leq r/L \leq 0.5 \\
   4 - 5z^2 + \frac{5}{3}z^3 + \frac{5}{8}z^4 - \frac{1}{2}z^5 - \frac{2}{3z}
-    & 0.5 < r/L < 1 \\[6pt]
+    & 0.5 < r/L < 1 \\
   0 & r/L \geq 1
 \end{cases}
 $$
@@ -1053,7 +1061,7 @@ between the grid point and the observation.
 
 Without intervention, the 3-layer model's SSH grows unboundedly because
 velocity perturbations propagate through the barotropic continuity
-equation ($\partial h/\partial t = -\nabla\cdot(h\mathbf{u})$) into
+equation $(\partial h/\partial t = -\nabla\cdot(h\mathbf{u}))$ into
 thickness anomalies. Three mechanisms control this:
 
 ### 1. Forecast-Time SSH Relaxation
@@ -1074,8 +1082,8 @@ the reference:
 
 $$
 h_{\text{total}}^{\text{corrected}}
-  = h_{\text{total}}^a
-    - \alpha_{\text{relax}}\bigl(\eta^a - \eta_{\text{ref}}(t)\bigr)
+  = h_{\text{total}}^a -
+    \alpha_{\text{relax}}\bigl(\eta^a - \eta_{\text{ref}}(t)\bigr)
 $$
 
 Default $\alpha_{\text{relax}} = 0.10$ in production (removes 10 % of
@@ -1242,9 +1250,9 @@ $K = 50$ and localisation scales restricted to $h \geq \Delta x$:
 | | $K = 25$ (best) | $K = 50$ at $h=60$ | $K = 50$ at $h=100$ |
 |--|:---:|:---:|:---:|
 | Optimal $h$ | 20 km (sub-grid) | 60 km (≈ $\Delta x$) | 100 km (2$\Delta x$) |
-| RMSE$_\text{vel}$ | **0.0074** | 0.0092 | 0.0083 |
-| RMSE$_\text{SST}$ | 0.226 | **0.211** | 0.240 |
-| RMSE$_\text{SSH}$ | **0.795** | 0.890 | 1.074 |
+| $\text{RMSE}_{\text{vel}}$ | **0.0074** | 0.0092 | 0.0083 |
+| $\text{RMSE}_{\text{SST}}$ | 0.226 | **0.211** | 0.240 |
+| $\text{RMSE}_{\text{SSH}}$ | **0.795** | 0.890 | 1.074 |
 
 #### Key Findings
 
@@ -1254,7 +1262,7 @@ $K = 50$ and localisation scales restricted to $h \geq \Delta x$:
    (1–2$\Delta x$, comparable to the first baroclinic Rossby radius in
    the subtropical North Atlantic, $\sim 30$–$60$ km).
 
-2. **$K = 50$ improves SST** at the super-grid scales: RMSE$_\text{SST}$
+2. **$K = 50$ improves SST** at the super-grid scales: $\text{RMSE}_{\text{SST}}$
    drops to 0.211 K at $h = 60$ km (vs 0.270 K for $K = 25$ at $h = 60$ km,
    a 22% improvement). The larger ensemble enables beneficial cross-cell
    covariances without introducing spurious correlations.
@@ -1266,8 +1274,8 @@ $K = 50$ and localisation scales restricted to $h \geq \Delta x$:
    RMSE (0.0083 vs 0.0074) at a physically consistent scale.
 
 4. **RMSE degrades sharply above $h = 150$ km** for both ensemble sizes.
-   At $h = 300$ km the filter diverges for $K = 25$ (RMSE$_\text{SST}$
-   $> 10$ K) and severely degrades for $K = 50$ (RMSE$_\text{SST}$
+   At $h = 300$ km the filter diverges for $K = 25$ ($\text{RMSE}_{\text{SST}}$
+   $> 10$ K) and severely degrades for $K = 50$ ($\text{RMSE}_{\text{SST}}$
    $\approx 1.5$–$3$ K). This is well above the Rossby deformation
    radius, confirming that localisation must respect the physics of
    mesoscale decorrelation.
