@@ -882,7 +882,7 @@ def generate_mcmc_diagnostics(v1_data, truth_raw):
     print("  Running MCMC diagnostic chains ...")
 
     # ── Load V1 config ──
-    cfg_v1 = os.path.join(BASEDIR, 'nlgamma_ldata', 'input_nlgamma_twin.yml')
+    cfg_v1 = os.path.join(BASEDIR, 'nlgamma_ldata', 'example_input_nlgamma_twin_v1.yml')
     if not os.path.exists(cfg_v1):
         print(f"  WARNING: {cfg_v1} not found, skipping MCMC diagnostics")
         return
@@ -891,7 +891,7 @@ def generate_mcmc_diagnostics(v1_data, truth_raw):
 
     # ── Load V2 config ──
     cfg_v2 = os.path.join(BASEDIR, 'nlgamma_ldata',
-                          'input_nlgamma_twin_v2.yml')
+                          'example_input_nlgamma_twin_v2.yml')
     if os.path.exists(cfg_v2):
         with open(cfg_v2) as f:
             params_v2 = yaml.safe_load(f)

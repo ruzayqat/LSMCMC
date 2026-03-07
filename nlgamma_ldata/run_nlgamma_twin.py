@@ -30,7 +30,7 @@ Usage
 -----
     python3 -u nlgamma_ldata/run_nlgamma_twin.py [config.yml]
 
-Default config: ``nlgamma_ldata/input_nlgamma_twin.yml``
+Default config: ``nlgamma_ldata/example_input_nlgamma_twin_v1.yml``
 """
 import os
 import sys
@@ -698,7 +698,7 @@ def _twin_worker(args):
 def main():
     config_file = (sys.argv[1] if len(sys.argv) > 1
                    else os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                     'input_nlgamma_twin.yml'))
+                                     'example_input_nlgamma_twin_v1.yml'))
     with open(config_file) as f:
         params = yaml.safe_load(f)
 

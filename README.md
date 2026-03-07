@@ -1517,7 +1517,7 @@ nohup python3 -u run_mlswe_lsmcmc_nldata_V2_twin.py \
 
 **Directory:** `nlgamma_ldata/`
 
-**Configs:** `nlgamma_ldata/input_nlgamma_twin.yml` (V1), `nlgamma_ldata/input_nlgamma_twin_v2.yml` (V2)
+**Configs:** `nlgamma_ldata/example_input_nlgamma_twin_v1.yml` (V1), `nlgamma_ldata/example_input_nlgamma_twin_v2.yml` (V2)
 
 A twin experiment on the full 3-layer MLSWE grid with:
 - **Linear observation operator** $\mathbf{y} = \mathbf{H}\mathbf{z} + \boldsymbol{\varepsilon}$
@@ -1533,11 +1533,11 @@ A twin experiment on the full 3-layer MLSWE grid with:
 cd nlgamma_ldata
 
 # V1 (block-partition, pCN kernel)
-nohup python3 -u run_nlgamma_twin.py input_nlgamma_twin.yml \
+nohup python3 -u run_nlgamma_twin.py example_input_nlgamma_twin_v1.yml \
     > log_nlgamma_v1.txt 2>&1 &
 
 # V2 (halo + GC, pCN kernel)
-nohup python3 -u run_nlgamma_twin_v2.py input_nlgamma_twin_v2.yml \
+nohup python3 -u run_nlgamma_twin_v2.py example_input_nlgamma_twin_v2.yml \
     > log_nlgamma_v2.txt 2>&1 &
 
 # LETKF baseline
@@ -1840,11 +1840,11 @@ nohup python3 -u run_mlswe_lsmcmc_nldata_V2_twin.py \
 cd nlgamma_ldata
 
 # V1
-nohup python3 -u run_nlgamma_twin.py input_nlgamma_twin.yml \
+nohup python3 -u run_nlgamma_twin.py example_input_nlgamma_twin_v1.yml \
     > log_nlgamma_v1.txt 2>&1 &
 
 # V2 (default shape m=1; use input_nlgamma_twin_v2_m2.yml etc. for other values)
-nohup python3 -u run_nlgamma_twin_v2.py input_nlgamma_twin_v2.yml \
+nohup python3 -u run_nlgamma_twin_v2.py example_input_nlgamma_twin_v2.yml \
     > log_nlgamma_v2.txt 2>&1 &
 
 # LETKF baseline

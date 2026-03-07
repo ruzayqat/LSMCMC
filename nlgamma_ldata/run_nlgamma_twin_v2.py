@@ -31,7 +31,7 @@ Usage
 -----
     python3 -u nlgamma_ldata/run_nlgamma_twin_v2.py [config.yml]
 
-Default config: ``nlgamma_ldata/input_nlgamma_twin_v2.yml``
+Default config: ``nlgamma_ldata/example_input_nlgamma_twin_v2.yml``
 """
 import os
 import sys
@@ -307,7 +307,7 @@ class _TwinFilterV2(NL_SMCMC_MLSWE_Filter_V2):
 
 def main():
     config_file = (sys.argv[1] if len(sys.argv) > 1
-                   else os.path.join(_HERE, 'input_nlgamma_twin_v2.yml'))
+                   else os.path.join(_HERE, 'example_input_nlgamma_twin_v2.yml'))
 
     # Monkey-patch the V1 twin module to use our V2 filter
     _v1_twin._TwinFilter = _TwinFilterV2
