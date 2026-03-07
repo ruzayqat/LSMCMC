@@ -53,10 +53,17 @@ plt.rcParams.update({
 })
 
 def savefig(fig, name):
+    """Save figure to OUTDIR in the given format, plus PNG for web display."""
     path = os.path.join(OUTDIR, name)
-    fig.savefig(path)
+    fig.savefig(path, bbox_inches='tight', dpi=300)
+    # Also save PNG for notebook/web display
+    if name.endswith('.pdf'):
+        png_path = path.replace('.pdf', '.png')
+        fig.savefig(png_path, bbox_inches='tight', dpi=150)
+        print(f"  Saved: {path} (+ PNG)")
+    else:
+        print(f"  Saved: {path}")
     plt.close(fig)
-    print(f"  Saved: {path}")
 
 
 # ────────────────────────────────────────────────────
