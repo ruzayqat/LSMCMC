@@ -1478,48 +1478,7 @@ nohup python3 -u run_mlswe_lsmcmc_ldata_V2.py example_input_mlswe_ldata_V2.yml \
 | ![Linear V1 SSH Comparison](paper_figures/linear_v1_compare_ssh.png) | |
 | SSH field: Forecast vs Analysis vs HYCOM | |
 
-### 2b-i. MLSWE — Nonlinear Data Model with Real Data
-
-**Configs:** `example_input_mlswe_nlrealdata_V1.yml`, `example_input_mlswe_nlrealdata_V2.yml`
-
-The same 3-layer MLSWE model but with a **nonlinear observation
-operator**:
-
-$$
-\mathbf{y} = \arctan(\mathbf{H}\mathbf{z}) + \boldsymbol{\varepsilon}
-$$
-
-The $\arctan$ transformation makes the posterior non-Gaussian, so
-exact-from-Gaussian sampling is replaced by MCMC:
-- **V1** uses a Gibbs-MH kernel (`gibbs_mh`)
-- **V2** uses a preconditioned Crank–Nicolson (pCN) kernel that is
-  robust in high dimensions — the prior term cancels in the
-  Metropolis–Hastings acceptance ratio
-
-Observations are the same real drifter + SWOT data. RMSE is computed
-at observation locations against HYCOM reanalysis.
-
-**Runners:**
-```bash
-# V1 (block-partition, gibbs_mh kernel)
-nohup python3 -u run_mlswe_lsmcmc_nlrealdata_V1.py \
-    example_input_mlswe_nlrealdata_V1.yml > log_nlreal_v1.txt 2>&1 &
-
-# V2 (halo + GC, pCN kernel)
-nohup python3 -u run_mlswe_lsmcmc_nlrealdata_V2.py \
-    example_input_mlswe_nlrealdata_V2.yml > log_nlreal_v2.txt 2>&1 &
-```
-
-**Sample results:**
-
-| | |
-|:--:|:--:|
-| ![NL Real V1 RMSE](paper_figures/nl_real_v1_rmse.png) | ![NL Real V2 RMSE](paper_figures/nl_real_v2_rmse.png) |
-| V1 RMSE timeseries vs HYCOM | V2 RMSE timeseries vs HYCOM |
-| ![NL Real V2 SSH](paper_figures/nl_real_v2_ssh_ts.png) | ![NL Real V2 Velocity](paper_figures/nl_real_v2_vel_ts.png) |
-| V2 SSH timeseries at selected grid points | V2 velocity/SST timeseries vs HYCOM |
-
-### 2b-ii. MLSWE — Nonlinear Data Model with Synthetic Twin Data
+### 2b-i. MLSWE — Nonlinear Data Model with Synthetic Twin Data
 
 **Configs:** `example_input_mlswe_nldata_V1_twin.yml`, `example_input_mlswe_nldata_V2_twin.yml`
 
@@ -1594,7 +1553,6 @@ nohup python3 -u run_nlgamma_twin_letkf.py input_nlgamma_twin_letkf.yml \
 |:-----------|:-------------|:------|:-----|:---------|:-------------|:-------------|
 | Linear Gaussian | $\mathbf{H}z$ | Gaussian | Synthetic swaths | Exact Gaussian | `input_linear_*` | `linear_gaussian/run_*` |
 | MLSWE Linear | $\mathbf{H}z$ | Gaussian | Real drifter+SWOT | Exact Gaussian | `example_input_mlswe_ldata_*` | `run_mlswe_lsmcmc_ldata_*` |
-| MLSWE NL Real | $\arctan(\mathbf{H}z)$ | Gaussian | Real drifter+SWOT | MCMC (pCN) | `example_input_mlswe_nlrealdata_*` | `run_mlswe_lsmcmc_nlrealdata_*` |
 | MLSWE NL Twin | $\arctan(\mathbf{H}z)$ | Gaussian | Synthetic from truth | MCMC (pCN) | `example_input_mlswe_nldata_*_twin` | `run_mlswe_lsmcmc_nldata_*_twin` |
 | MLSWE Cauchy Twin | $\mathbf{H}z$ | Cauchy | Synthetic from truth | MCMC (pCN) | `input_nlgamma_twin*` | `nlgamma_ldata/run_nlgamma_twin*` |
 
@@ -1676,8 +1634,6 @@ MLSWE_LSMCMC/
 ├── run_mlswe_lsmcmc_nldata_V2.py       # NL LSMCMC V2 runner (synthetic obs)
 ├── run_mlswe_lsmcmc_nldata_V1_twin.py  # NL LSMCMC V1 twin experiment runner
 ├── run_mlswe_lsmcmc_nldata_V2_twin.py  # NL LSMCMC V2 twin experiment runner
-├── run_mlswe_lsmcmc_nlrealdata_V1.py   # NL LSMCMC V1 real-data runner
-├── run_mlswe_lsmcmc_nlrealdata_V2.py   # NL LSMCMC V2 real-data runner
 ├── run_mlswe_ldata_letkf_mpi.py        # LETKF runner (multiprocessing, linear obs)
 ├── run_mlswe_letkf_nl_twin.py          # LETKF runner (NL twin experiment)
 ├── run_mlswe_letkf_nldata.py           # LETKF runner (NL real-data)
@@ -1991,11 +1947,11 @@ python3 plot_mlswe_results.py ./output_lsmcmc_ldata_V2 \
 
 # Nonlinear Real V1
 python3 plot_mlswe_results.py ./output_lsmcmc_nldata_real_V1 \
-    example_input_mlswe_nlrealdata_V1.yml "NL Real V1"
+
 
 # Nonlinear Real V2
 python3 plot_mlswe_results.py ./output_lsmcmc_nldata_real_V2 \
-    example_input_mlswe_nlrealdata_V2.yml "NL Real V2"
+
 ```
 
 For real-data experiments, the plotter loads HYCOM reanalysis as the
@@ -2126,6 +2082,7 @@ pip install numpy scipy netCDF4 pyyaml matplotlib
 
 If you use this code in your research, please cite:
 
+**Paper:**
 ```bibtex
 @article{Ruzayqat2026LSMCMC,
   author  = {Ruzayqat, Hamza and Chipilski, Hristo G. and Knio, Omar},
@@ -2135,3 +2092,15 @@ If you use this code in your research, please cite:
   year    = {2026}
 }
 ```
+
+**Software:**
+```bibtex
+@software{Ruzayqat2026LSMCMC_software,
+  author  = {Ruzayqat, Hamza},
+  title   = {LSMCMC},
+  year    = {2026},
+  url     = {https://github.com/ruzayqat/LSMCMC}
+}
+```
+
+See `CITATION.cff` for machine-readable metadata.
