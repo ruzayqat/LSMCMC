@@ -4,9 +4,9 @@
 
 # Download pre-computed output data for figure reproduction
 # (Skip if already present or if Zenodo ID not configured)
-if python3 -c "from download_output_data import ZENODO_RECORD_ID; exit(0 if ZENODO_RECORD_ID != 'XXXXXXX' else 1)" 2>/dev/null; then
+if python3 -c "from scripts.download_output_data import ZENODO_RECORD_ID; exit(0 if ZENODO_RECORD_ID != 'XXXXXXX' else 1)" 2>/dev/null; then
     echo "Downloading pre-computed output data for figure reproduction..."
-    python3 download_output_data.py --noninteractive || echo "Download skipped or failed; figures requiring output data will not work."
+    python3 scripts/download_output_data.py --noninteractive || echo "Download skipped or failed; figures requiring output data will not work."
 else
     echo "Note: Output data not configured. Linear Gaussian experiment will work; MLSWE figures require running experiments locally."
 fi

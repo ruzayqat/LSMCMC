@@ -1441,7 +1441,9 @@ python3 -u linear_forward_run_lsmcmc_v1.py input_linear_letkf.yml
 
 ### 2a. MLSWE — Linear Data Model with Real Data
 
-**Configs:** `example_input_mlswe_ldata_V1.yml`, `example_input_mlswe_ldata_V2.yml`
+**Directory:** `ldata_real_ob_gaussian/`
+
+**Configs:** `ldata_real_ob_gaussian/example_input_mlswe_ldata_V1.yml`, `ldata_real_ob_gaussian/example_input_mlswe_ldata_V2.yml`
 
 The full 3-layer MLSWE model ($70 \times 80$ grid, $d = 67{,}200$) is
 run with a **linear observation operator**:
@@ -1460,6 +1462,8 @@ RMSE is computed at observation locations against HYCOM reanalysis.
 
 **Runners:**
 ```bash
+cd ldata_real_ob_gaussian
+
 # V1 (block-partition)
 nohup python3 -u run_mlswe_lsmcmc_ldata_V1.py example_input_mlswe_ldata_V1.yml \
     > log_ldata_v1.txt 2>&1 &
@@ -1480,7 +1484,9 @@ nohup python3 -u run_mlswe_lsmcmc_ldata_V2.py example_input_mlswe_ldata_V2.yml \
 
 ### 2b-i. MLSWE — Nonlinear Data Model with Synthetic Twin Data
 
-**Configs:** `example_input_mlswe_nldata_V1_twin.yml`, `example_input_mlswe_nldata_V2_twin.yml`
+**Directory:** `nldata_synth_ob_gaussian/`
+
+**Configs:** `nldata_synth_ob_gaussian/example_input_mlswe_nldata_V1_twin.yml`, `nldata_synth_ob_gaussian/example_input_mlswe_nldata_V2_twin.yml`
 
 A controlled experiment where:
 1. A "truth" run of the MLSWE model generates the ground truth state.
@@ -1495,6 +1501,8 @@ nonlinear observations.
 
 **Runners:**
 ```bash
+cd nldata_synth_ob_gaussian
+
 # V1 (block-partition)
 nohup python3 -u run_mlswe_lsmcmc_nldata_V1_twin.py \
     example_input_mlswe_nldata_V1_twin.yml > log_twin_v1.txt 2>&1 &
@@ -1515,44 +1523,43 @@ nohup python3 -u run_mlswe_lsmcmc_nldata_V2_twin.py \
 
 ### 2c. MLSWE — Cauchy (Non-Gaussian) Noise Twin Experiments
 
-**Directory:** `nlgamma_ldata/`
+**Directory:** `nldata_synth_ob_cauchy/`
 
-**Configs:** `nlgamma_ldata/example_input_nlgamma_twin_v1.yml` (V1), `nlgamma_ldata/example_input_nlgamma_twin_v2.yml` (V2)
+**Configs:** `nldata_synth_ob_cauchy/example_input_nldata_cauchy_v1.yml` (V1), `nldata_synth_ob_cauchy/example_input_nldata_cauchy_v2.yml` (V2)
 
 A twin experiment on the full 3-layer MLSWE grid with:
-- **Linear observation operator** $\mathbf{y} = \mathbf{H}\mathbf{z} + \boldsymbol{\varepsilon}$
-- **Cauchy (heavy-tailed) observation noise** instead of Gaussian, making
-  the likelihood non-log-concave and requiring MCMC sampling even though
-  the observation operator is linear
+- **Nonlinear observation operator** $\mathbf{y} = \arctan(\mathbf{H}\mathbf{z}) + \boldsymbol{\varepsilon}$
+- **Cauchy (Student-$t$, $\nu{=}1$) heavy-tailed observation noise** instead of Gaussian, making
+  the likelihood non-log-concave and requiring MCMC sampling
 - Multiple shape parameter values ($m = 1, 2, 3, 4$) are tested via
-  dedicated configs (`input_nlgamma_twin_v2_m1.yml`, …, `input_nlgamma_twin_v2_m4.yml`)
-- LETKF baseline: `nlgamma_ldata/run_nlgamma_twin_letkf.py`
+  dedicated configs (`example_input_nldata_cauchy_v2_m1.yml`, …, `example_input_nldata_cauchy_v2_m4.yml`)
+- LETKF baseline: `nldata_synth_ob_cauchy/run_nldata_cauchy_letkf.py`
 
 **Runners:**
 ```bash
-cd nlgamma_ldata
+cd nldata_synth_ob_cauchy
 
 # V1 (block-partition, pCN kernel)
-nohup python3 -u run_nlgamma_twin.py example_input_nlgamma_twin_v1.yml \
-    > log_nlgamma_v1.txt 2>&1 &
+nohup python3 -u run_nldata_cauchy_v1.py example_input_nldata_cauchy_v1.yml \
+    > log_cauchy_v1.txt 2>&1 &
 
 # V2 (halo + GC, pCN kernel)
-nohup python3 -u run_nlgamma_twin_v2.py example_input_nlgamma_twin_v2.yml \
-    > log_nlgamma_v2.txt 2>&1 &
+nohup python3 -u run_nldata_cauchy_v2.py example_input_nldata_cauchy_v2.yml \
+    > log_cauchy_v2.txt 2>&1 &
 
 # LETKF baseline
-nohup python3 -u run_nlgamma_twin_letkf.py input_nlgamma_twin_letkf.yml \
-    > log_nlgamma_letkf.txt 2>&1 &
+nohup python3 -u run_nldata_cauchy_letkf.py example_input_nldata_cauchy_letkf.yml \
+    > log_cauchy_letkf.txt 2>&1 &
 ```
 
 ### Experiment Summary Table
 
 | Experiment | Obs Operator | Noise | Data | Sampling | Config prefix | Runner prefix |
 |:-----------|:-------------|:------|:-----|:---------|:-------------|:-------------|
-| Linear Gaussian | $\mathbf{H}z$ | Gaussian | Synthetic swaths | Exact Gaussian | `input_linear_*` | `linear_gaussian/run_*` |
-| MLSWE Linear | $\mathbf{H}z$ | Gaussian | Real drifter+SWOT | Exact Gaussian | `example_input_mlswe_ldata_*` | `run_mlswe_lsmcmc_ldata_*` |
-| MLSWE NL Twin | $\arctan(\mathbf{H}z)$ | Gaussian | Synthetic from truth | MCMC (pCN) | `example_input_mlswe_nldata_*_twin` | `run_mlswe_lsmcmc_nldata_*_twin` |
-| MLSWE Cauchy Twin | $\mathbf{H}z$ | Cauchy | Synthetic from truth | MCMC (pCN) | `input_nlgamma_twin*` | `nlgamma_ldata/run_nlgamma_twin*` |
+| Linear Gaussian | $\mathbf{H}z$ | Gaussian | Synthetic swaths | Exact Gaussian | `input_linear_*` | `linear_gaussian/` |
+| MLSWE Linear | $\mathbf{H}z$ | Gaussian | Real drifter+SWOT | Exact Gaussian | `example_input_mlswe_ldata_*` | `ldata_real_ob_gaussian/` |
+| MLSWE NL Twin | $\arctan(\mathbf{H}z)$ | Gaussian | Synthetic from truth | MCMC (pCN) | `example_input_mlswe_nldata_*_twin` | `nldata_synth_ob_gaussian/` |
+| MLSWE Cauchy Twin | $\arctan(\mathbf{H}z)$ | Cauchy ($\nu{=}1$) | Synthetic from truth | MCMC (pCN) | `example_input_nldata_cauchy_*` | `nldata_synth_ob_cauchy/` |
 
 ---
 
@@ -1562,10 +1569,8 @@ All MLSWE experiments (linear, nonlinear, Cauchy) require external
 oceanographic data.  A single master script downloads everything:
 
 ```bash
-python3 download_all_data.py
+python3 scripts/download_all_data.py
 ```
-
-This runs six steps:
 
 | Step | What | Source | Output |
 |------|------|--------|--------|
@@ -1579,9 +1584,9 @@ This runs six steps:
 After downloading, process observations:
 
 ```bash
-python3 generate_drifter_obs.py          # drifter CSV → obs NetCDF
-python3 prebin_swot_ssh.py               # SWOT L2 → model-grid SSH
-python3 generate_synthetic_swot.py       # gap-fill missing SWOT cycles
+python3 scripts/generate_drifter_obs.py          # drifter CSV → obs NetCDF
+python3 scripts/prebin_swot_ssh.py               # SWOT L2 → model-grid SSH
+python3 scripts/generate_synthetic_swot.py       # gap-fill missing SWOT cycles
 ```
 
 The **Linear Gaussian** experiment (under `linear_gaussian/`) is
@@ -1596,7 +1601,7 @@ detailed per-experiment data instructions.
 ## Project Structure
 
 ```
-MLSWE_LSMCMC/
+LSMCMC/
 ├── mlswe/                              # Model package
 │   ├── __init__.py
 │   ├── model.py                        # 3-layer MLSWE solver (RK4, A-grid)
@@ -1606,7 +1611,7 @@ MLSWE_LSMCMC/
 │   ├── lsmcmc_nl_V1.py                 # LSMCMC filter — nonlinear V1 (block-partition, MCMC)
 │   ├── lsmcmc_nl_V2.py                 # LSMCMC filter — nonlinear V2 (halo + GC, MCMC)
 │   └── letkf.py                        # LETKF local update utilities
-├── linear_gaussian/                    # Linear Gaussian synthetic experiment
+├── linear_gaussian/                    # Experiment 1: LG synthetic (self-contained)
 │   ├── run_full_comparison.py          # Run V1, V2, and LETKF together
 │   ├── linear_forward_generate_data.py # Generate synthetic observations
 │   ├── linear_forward_run_letkf_mpi.py # LETKF runner (multiprocessing)
@@ -1616,75 +1621,58 @@ MLSWE_LSMCMC/
 │   ├── linear_forward_run_letkf_sensitivity.py
 │   ├── generate_swath_observations.py  # SWOT-like dual-swath obs generator
 │   └── input_linear_*.yml              # YAML configs for LG experiment
-├── nlgamma_ldata/                      # Cauchy (non-Gaussian) noise twin experiment
-│   ├── run_nlgamma_twin.py             # V1 runner
-│   ├── run_nlgamma_twin_v2.py          # V2 runner
-│   ├── run_nlgamma_twin_letkf.py       # LETKF baseline runner
-│   └── input_nlgamma_twin*.yml         # YAML configs (m=1,2,3,4 variants)
-├── nongauss_ldata/                     # Arctan observation operator twin experiment
-│   ├── run_nongauss_twin.py            # V1 runner
-│   ├── run_nongauss_twin_v2.py         # V2 runner
-│   ├── run_nongauss_twin_letkf.py      # LETKF baseline runner
-│   └── input_nongauss*.yml             # YAML configs
-├── run_mlswe_lsmcmc_ldata_V1.py        # Linear LSMCMC V1 runner
-├── run_mlswe_lsmcmc_ldata_V2.py        # Linear LSMCMC V2 runner
-├── run_mlswe_lsmcmc_nldata_V1.py       # NL LSMCMC V1 runner (synthetic obs)
-├── run_mlswe_lsmcmc_nldata_V2.py       # NL LSMCMC V2 runner (synthetic obs)
-├── run_mlswe_lsmcmc_nldata_V1_twin.py  # NL LSMCMC V1 twin experiment runner
-├── run_mlswe_lsmcmc_nldata_V2_twin.py  # NL LSMCMC V2 twin experiment runner
-├── run_mlswe_ldata_letkf_mpi.py        # LETKF runner (multiprocessing, linear obs)
-├── run_mlswe_letkf_nl_twin.py          # LETKF runner (NL twin experiment)
-├── run_mlswe_letkf_nldata.py           # LETKF runner (NL real-data)
-├── mcmc_diagnostics.py                 # MCMC convergence diagnostics (ESS, R-hat, traceplots)
-├── prebin_swot_ssh.py                  # SWOT L2 → model-grid SSH binning (ADT computation)
-├── generate_synthetic_swot.py          # Gap-fill missing SWOT cycles with synthetic obs
-├── generate_drifter_obs.py             # Drifter observation processing
-├── download_all_data.py                # Master data download script (6 steps)
-├── download_hycom_bc.py                # HYCOM GOFS 3.1 download via OPeNDAP
-├── drifter_data.py                     # GDP / OSMC drifter loading utilities
-├── swot_ssh_data.py                    # SWOT L2 SSH download via earthaccess
-├── mlswe_letkf_sensitivity.py          # LETKF parameter sensitivity sweep
-├── plot_mlswe_results.py               # Figures for a single DA method
-├── plot_lsmcmc_vs_letkf.py             # LSMCMC vs LETKF comparison figures
-├── plot_mlswe_letkf_sensitivity.py     # Sensitivity heatmap plots
-├── plot_nl_twin_results.py             # Twin experiment comparison plots
-├── generate_nlgamma_figures.py         # Cauchy noise experiment figures
-├── generate_localization_illustration.py  # V1 vs V2 localization diagram
-├── generate_paper_figures.py           # All paper figures
-├── generate_all_figures.py            # Runs all 3 figure scripts in one command
-├── LSMCMC.ipynb                        # Jupyter notebook: running guide + figure reproduction
-├── run_v2_after_v1.sh                  # Helper: run V2 after V1 completes
-├── run_nlgamma_sequential.sh           # Helper: run Cauchy experiments sequentially
-├── example_input_mlswe_*.yml           # YAML configs for MLSWE experiments
-├── paper/                              # Manuscript (JAMES format)
-│   ├── LSMCMC_filter.tex               # Main LaTeX source (standalone)
-│   ├── agujournal2019 template/        # JAMES-formatted version
-│   │   ├── LSMCMC_filter_JAMES.tex
-│   │   ├── references.bib
-│   │   └── figures/
-│   └── figures/                        # Shared figure PDFs
-├── data/                               # Input data
+├── ldata_real_ob_gaussian/             # Experiment 2: MLSWE, linear obs, Gaussian noise, real data
+│   ├── run_mlswe_lsmcmc_ldata_V1.py   # LSMCMC V1 runner (base module)
+│   ├── run_mlswe_lsmcmc_ldata_V2.py   # LSMCMC V2 runner
+│   ├── run_mlswe_ldata_letkf_mpi.py   # LETKF runner (multiprocessing)
+│   ├── mlswe_letkf_sensitivity.py      # LETKF sensitivity sweep
+│   └── example_input_mlswe_ldata_*.yml # YAML configs
+├── nldata_synth_ob_gaussian/           # Experiment 3: MLSWE, arctan obs, Gaussian noise, twin
+│   ├── run_mlswe_lsmcmc_nldata_V1_twin.py  # LSMCMC V1 twin runner
+│   ├── run_mlswe_lsmcmc_nldata_V2_twin.py  # LSMCMC V2 twin runner
+│   ├── run_mlswe_letkf_nl_twin.py          # LETKF NL twin runner
+│   ├── mcmc_diagnostics.py                  # MCMC convergence diagnostics
+│   ├── mlswe_letkf_nl_sensitivity.py        # LETKF NL sensitivity sweep
+│   └── example_input_mlswe_nldata_*_twin.yml
+├── nldata_synth_ob_cauchy/             # Experiment 4: MLSWE, arctan obs, Cauchy (ν=1), twin
+│   ├── run_nldata_cauchy_v1.py         # LSMCMC V1 runner (pCN)
+│   ├── run_nldata_cauchy_v2.py         # LSMCMC V2 runner (pCN)
+│   ├── run_nldata_cauchy_letkf.py      # LETKF baseline runner
+│   └── example_input_nldata_cauchy_*.yml  # YAML configs (m=1,2,3,4 variants)
+├── scripts/                            # Plotting, data download, and utility scripts
+│   ├── generate_paper_figures.py       # All paper figures (LG, linear, NL twin)
+│   ├── generate_nlgamma_figures.py     # Cauchy noise experiment figures
+│   ├── generate_all_figures.py         # Runs all 3 figure scripts in one command
+│   ├── regen_timeseries_1x2.py         # V2 velocity/SST/SSH timeseries (1×2 panels)
+│   ├── download_all_data.py            # Master data download script (6 steps)
+│   ├── download_hycom_bc.py            # HYCOM GOFS 3.1 download via OPeNDAP
+│   ├── download_output_data.py         # Pre-computed output download (Zenodo)
+│   ├── drifter_data.py                 # GDP / OSMC drifter loading utilities
+│   ├── swot_ssh_data.py                # SWOT L2 SSH download via earthaccess
+│   ├── prebin_swot_ssh.py              # SWOT L2 → model-grid SSH binning
+│   ├── generate_synthetic_swot.py      # Gap-fill missing SWOT cycles
+│   ├── generate_drifter_obs.py         # Drifter observation processing
+│   ├── generate_localization_illustration.py  # V1 vs V2 localization diagram
+│   ├── plot_mlswe_results.py           # Figures for a single DA method
+│   ├── plot_lsmcmc_vs_letkf.py         # LSMCMC vs LETKF comparison
+│   ├── plot_mlswe_letkf_sensitivity.py # Sensitivity heatmap plots
+│   ├── plot_nl_twin_results.py         # Twin experiment comparison plots
+│   ├── plot_mlswe_output.py            # MLSWE output visualization
+│   ├── plot_partition_obs.py           # Observation partition diagram
+│   ├── plot_partition_obs_cycles.py    # Per-cycle observation partitions
+│   └── plot_ssh_obs.py                 # SSH observation plots
+├── paper_figures/                      # Generated publication-quality figures
+├── data/                               # Input data (downloaded)
 │   ├── etopo_bathy_*.npy               # Bathymetry
-│   ├── gdp_hourly_*.csv                # Drifter observations
-│   ├── hycom_bc.nc                     # HYCOM boundary conditions
-│   ├── hycom_sst_ref_*_3d.npy          # SST nudging reference (time × ny × nx)
-│   ├── hycom_sst_ref_*_times.npy       # SST reference time axis
-│   ├── hycom_ssh_ref_*.npy             # SSH relaxation reference
-│   ├── swot_ssh_binned_80x70.nc        # Real SWOT SSH (binned to model grid)
-│   ├── swot_ssh_combined_80x70.nc      # Real + synthetic SWOT SSH
-│   └── ncep_t2m_*.npy                  # NCEP 2-m air temperature
-├── output_lsmcmc_ldata_V1/             # Linear LSMCMC V1 output (240 cycles)
-├── output_lsmcmc_ldata_V2/             # Linear LSMCMC V2 output (240 cycles)
-├── output_lsmcmc_nldata_twin_V1/       # NL LSMCMC V1 twin output
-├── output_lsmcmc_nldata_twin_V2/       # NL LSMCMC V2 twin output
-├── output_lsmcmc_nldata_real_V1/       # NL LSMCMC V1 real-data output
-├── output_lsmcmc_nldata_real_V2/       # NL LSMCMC V2 real-data output
-├── output_nlgamma_twin_V1*/            # Cauchy V1 twin outputs
-├── output_nlgamma_twin_V2*/            # Cauchy V2 twin outputs (m=1,2,3,4)
-├── output_letkf/                       # LETKF output NetCDF
-├── comparison_plots/                   # Generated comparison figures
+│   ├── hycom_bc_2024aug.nc             # HYCOM boundary conditions
+│   ├── obs_2024aug/                    # Processed drifter observations
+│   ├── swot_2024aug_new/               # SWOT SSH files
+│   └── hycom_s*_ref_*.npy              # SSH/SST reference fields
+├── output_*/                           # Experiment output directories (generated)
+├── LSMCMC.ipynb                        # Jupyter notebook: running guide + figure reproduction
 ├── requirements.txt                    # Python dependencies (pip)
 ├── environment.yml                     # Conda environment (also used by Binder)
+├── postBuild                           # Binder post-build script
 ├── LICENSE                             # MIT License
 ├── CITATION.cff                        # Machine-readable citation metadata
 └── README.md
@@ -1815,6 +1803,8 @@ is logged in real time.
 ### Quick Start: Linear LSMCMC (real data)
 
 ```bash
+cd ldata_real_ob_gaussian
+
 # V1 — Block-partition localization
 python3 -u run_mlswe_lsmcmc_ldata_V1.py example_input_mlswe_ldata_V1.yml
 
@@ -1825,6 +1815,8 @@ python3 -u run_mlswe_lsmcmc_ldata_V2.py example_input_mlswe_ldata_V2.yml
 ### Nonlinear LSMCMC — Twin Experiments
 
 ```bash
+cd nldata_synth_ob_gaussian
+
 # V1 twin (block-partition)
 nohup python3 -u run_mlswe_lsmcmc_nldata_V1_twin.py \
     example_input_mlswe_nldata_V1_twin.yml > log_twin_v1.txt 2>&1 &
@@ -1837,35 +1829,32 @@ nohup python3 -u run_mlswe_lsmcmc_nldata_V2_twin.py \
 ### Cauchy (Non-Gaussian) Noise Twin Experiments
 
 ```bash
-cd nlgamma_ldata
+cd nldata_synth_ob_cauchy
 
 # V1
-nohup python3 -u run_nlgamma_twin.py example_input_nlgamma_twin_v1.yml \
-    > log_nlgamma_v1.txt 2>&1 &
+nohup python3 -u run_nldata_cauchy_v1.py example_input_nldata_cauchy_v1.yml \
+    > log_cauchy_v1.txt 2>&1 &
 
-# V2 (default shape m=1; use input_nlgamma_twin_v2_m2.yml etc. for other values)
-nohup python3 -u run_nlgamma_twin_v2.py example_input_nlgamma_twin_v2.yml \
-    > log_nlgamma_v2.txt 2>&1 &
+# V2 (default shape m=1; use example_input_nldata_cauchy_v2_m2.yml etc. for other values)
+nohup python3 -u run_nldata_cauchy_v2.py example_input_nldata_cauchy_v2.yml \
+    > log_cauchy_v2.txt 2>&1 &
 
 # LETKF baseline
-nohup python3 -u run_nlgamma_twin_letkf.py input_nlgamma_twin_letkf.yml \
-    > log_nlgamma_letkf.txt 2>&1 &
+nohup python3 -u run_nldata_cauchy_letkf.py example_input_nldata_cauchy_letkf.yml \
+    > log_cauchy_letkf.txt 2>&1 &
 ```
 
 ### Running V2 After V1 (Sequential)
 
-If V2 should start after V1 finishes (e.g., to reuse resources), use the
-helper script:
-
-```bash
-nohup bash run_v2_after_v1.sh > log_sequential.txt 2>&1 &
-```
+Both V1 and V2 scripts are in their respective experiment directories.
+Run them sequentially by waiting for V1 to complete before launching V2.
 
 ### MCMC Convergence Diagnostics
 
 After a nonlinear run completes, check convergence with:
 
 ```bash
+cd nldata_synth_ob_gaussian
 python3 -u mcmc_diagnostics.py example_input_mlswe_nldata_V2_twin.yml
 ```
 
@@ -1879,15 +1868,16 @@ be pre-processed:
 
 ```bash
 # Step 1: Bin raw SWOT L2 files onto model grid (computes ADT)
-python3 prebin_swot_ssh.py
+python3 scripts/prebin_swot_ssh.py
 
 # Step 2: Fill gaps with synthetic SWOT observations
-python3 generate_synthetic_swot.py
+python3 scripts/generate_synthetic_swot.py
 ```
 
 ### LETKF (multiprocessing-parallel)
 
 ```bash
+cd ldata_real_ob_gaussian
 python3 -u run_mlswe_ldata_letkf_mpi.py example_input_mlswe_letkf_best.yml
 ```
 
@@ -1899,6 +1889,7 @@ python3 -u run_mlswe_ldata_letkf_mpi.py example_input_mlswe_letkf_best.yml
 CLI overrides for parameter tuning:
 
 ```bash
+cd ldata_real_ob_gaussian
 python3 -u run_mlswe_ldata_letkf_mpi.py example_input_mlswe_letkf_best.yml \
     --hcovlocal_scale 100 --covinflate1 0.5 --nanals 50
 ```
@@ -1906,9 +1897,10 @@ python3 -u run_mlswe_ldata_letkf_mpi.py example_input_mlswe_letkf_best.yml \
 ### LETKF Sensitivity Analysis
 
 ```bash
+cd ldata_real_ob_gaussian
 python3 mlswe_letkf_sensitivity.py --nprocs 50 --nanals 25 \
     --config example_input_mlswe_test100.yml
-python3 plot_mlswe_letkf_sensitivity.py
+python3 ../scripts/plot_mlswe_letkf_sensitivity.py
 ```
 
 ---
@@ -1921,23 +1913,15 @@ experiment type has its own plotter.
 ### Real-Data Experiments (Linear or Nonlinear)
 
 ```bash
-# Usage: python3 plot_mlswe_results.py <output_dir> <config_file> <label>
+# Usage: python3 scripts/plot_mlswe_results.py <output_dir> <config_file> <label>
 
 # Linear V1
-python3 plot_mlswe_results.py ./output_lsmcmc_ldata_V1 \
-    example_input_mlswe_ldata_V1.yml "Linear V1"
+python3 scripts/plot_mlswe_results.py ./output_lsmcmc_ldata_V1 \
+    ldata_real_ob_gaussian/example_input_mlswe_ldata_V1.yml "Linear V1"
 
 # Linear V2
-python3 plot_mlswe_results.py ./output_lsmcmc_ldata_V2 \
-    example_input_mlswe_ldata_V2.yml "Linear V2"
-
-# Nonlinear Real V1
-python3 plot_mlswe_results.py ./output_lsmcmc_nldata_real_V1 \
-
-
-# Nonlinear Real V2
-python3 plot_mlswe_results.py ./output_lsmcmc_nldata_real_V2 \
-
+python3 scripts/plot_mlswe_results.py ./output_lsmcmc_ldata_V2 \
+    ldata_real_ob_gaussian/example_input_mlswe_ldata_V2.yml "Linear V2"
 ```
 
 For real-data experiments, the plotter loads HYCOM reanalysis as the
@@ -1947,15 +1931,15 @@ Velocity and SST timeseries show HYCOM reference curves.
 ### Twin Experiments
 
 ```bash
-# Usage: python3 plot_nl_twin_results.py <output_dir> <file_prefix> <config_file> <label>
+# Usage: python3 scripts/plot_nl_twin_results.py <output_dir> <file_prefix> <config_file> <label>
 
 # NL Twin V1
-python3 plot_nl_twin_results.py ./output_lsmcmc_nldata_twin_V1 \
-    nldata_V1_twin example_input_mlswe_nldata_V1_twin.yml "NL Twin V1"
+python3 scripts/plot_nl_twin_results.py ./output_lsmcmc_nldata_twin_V1 \
+    nldata_V1_twin nldata_synth_ob_gaussian/example_input_mlswe_nldata_V1_twin.yml "NL Twin V1"
 
 # NL Twin V2
-python3 plot_nl_twin_results.py ./output_lsmcmc_nldata_twin_V2 \
-    nldata_V2_twin example_input_mlswe_nldata_V2_twin.yml "NL Twin V2"
+python3 scripts/plot_nl_twin_results.py ./output_lsmcmc_nldata_twin_V2 \
+    nldata_V2_twin nldata_synth_ob_gaussian/example_input_mlswe_nldata_V2_twin.yml "NL Twin V2"
 ```
 
 For twin experiments, the plotter loads the saved "truth" state and
@@ -1966,13 +1950,13 @@ computes RMSE over all grid cells. SSH timeseries show the true SSH
 
 ```bash
 # LSMCMC V1 vs V2 vs LETKF side-by-side
-python3 plot_lsmcmc_vs_letkf.py
+python3 scripts/plot_lsmcmc_vs_letkf.py
 ```
 
 ### Localization Illustration
 
 ```bash
-python3 generate_localization_illustration.py
+python3 scripts/generate_localization_illustration.py
 ```
 
 Generates `figures/localization_v1_v2_illustration.png` showing how V1
@@ -1981,7 +1965,7 @@ and V2 partition the domain and assign observations.
 ### Cauchy (Non-Gaussian) Noise Figures
 
 ```bash
-python3 generate_nlgamma_figures.py
+python3 scripts/generate_nlgamma_figures.py
 ```
 
 ### All Paper Figures (Single Command)
@@ -1989,7 +1973,7 @@ python3 generate_nlgamma_figures.py
 Generate every paper figure at once:
 
 ```bash
-python3 generate_all_figures.py
+python3 scripts/generate_all_figures.py
 ```
 
 This runs `generate_paper_figures.py`, `generate_nlgamma_figures.py`, and
