@@ -3,6 +3,10 @@
 
 # MLSWE\_LSMCMC — Multi-Layer Shallow-Water Equations with Data Assimilation
 
+<p align="center">
+  <img src="lsmcmc_animation.gif" alt="LSMCMC Data Assimilation Animation" width="700">
+</p>
+
 Companion code for:
 
 > **Two Localization Strategies for Sequential MCMC Data Assimilation
