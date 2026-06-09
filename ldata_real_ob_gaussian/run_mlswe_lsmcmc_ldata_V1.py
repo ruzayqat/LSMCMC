@@ -263,6 +263,33 @@ def main():
     with open(config_file) as f:
         params = yaml.safe_load(f)
 
+    # ---- Optional environment-variable overrides ----------------------
+    # Allow the ensemble-calibration diagnostics to be enabled from any
+    # existing config without duplicating it, e.g.:
+    #     MLSWE_ADAPT_INFL=1 MLSWE_OUTDIR=./out_infl \
+    #         python run_mlswe_lsmcmc_ldata_V2.py config.yml
+    _env = os.environ
+    if 'MLSWE_FREE_RUN' in _env:
+        params['free_run'] = _env['MLSWE_FREE_RUN'].lower() in ('1', 'true', 'yes')
+    if 'MLSWE_SAVE_SPREAD' in _env:
+        params['save_spread'] = _env['MLSWE_SAVE_SPREAD'].lower() in ('1', 'true', 'yes')
+    if 'MLSWE_CV_FRACTION' in _env:
+        params['cv_fraction'] = float(_env['MLSWE_CV_FRACTION'])
+    if 'MLSWE_CV_SEED' in _env:
+        params['cv_seed'] = int(_env['MLSWE_CV_SEED'])
+    if 'MLSWE_ADAPT_INFL' in _env:
+        params['adaptive_inflation'] = _env['MLSWE_ADAPT_INFL'].lower() in ('1', 'true', 'yes')
+    if 'MLSWE_INFL_MIN' in _env:
+        params['infl_min'] = float(_env['MLSWE_INFL_MIN'])
+    if 'MLSWE_INFL_MAX' in _env:
+        params['infl_max'] = float(_env['MLSWE_INFL_MAX'])
+    if 'MLSWE_INFL_RELAX' in _env:
+        params['infl_relax'] = float(_env['MLSWE_INFL_RELAX'])
+    if 'MLSWE_INFL_DEADBAND' in _env:
+        params['infl_deadband'] = float(_env['MLSWE_INFL_DEADBAND'])
+    if 'MLSWE_OUTDIR' in _env:
+        params['lsmcmc_dir'] = _env['MLSWE_OUTDIR']
+
     print("=" * 60)
     print("  MLSWE LSMCMC Runner -- 3-Layer Primitive Equations")
     print("=" * 60)

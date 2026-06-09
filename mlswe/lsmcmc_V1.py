@@ -34,6 +34,7 @@ from loc_smcmc_swe_exact_from_Gauss import (
 )
 
 from mlswe.model import MLSWE, coriolis_array, lonlat_to_dxdy
+from mlswe import da_diagnostics as _diag
 
 
 # ===================================================================
@@ -161,6 +162,39 @@ class Loc_SMCMC_MLSWE_Filter:
 
         # Verbosity control (set verbose=False for M-run workers)
         self.verbose = params.get('verbose', True)
+
+        # ---- Optional reviewer-requested diagnostics (default OFF) ----
+        # free_run    : skip the analysis update -> no-DA forecast baseline
+        # save_spread : accumulate forecast spread + rank histograms
+        # cv_fraction : withhold this fraction of obs for cross-validation
+        self.free_run = bool(params.get('free_run', False))
+        self.save_spread = bool(params.get('save_spread', False))
+        self.cv_fraction = float(params.get('cv_fraction', 0.0))
+        self.cv_seed = int(params.get('cv_seed', 12345))
+        self._diag_rng = np.random.default_rng(self.cv_seed)
+        # Per-cycle diagnostic accumulators (filled in run())
+        self.spread_vel = self.spread_sst = self.spread_ssh = None
+        self.rmse_cv_vel = self.rmse_cv_sst = self.rmse_cv_ssh = None
+        self.rankhist = None
+
+        # ---- Adaptive per-field inflation/deflation (default OFF) ----
+        # Innovation-based multiplicative inflation applied independently to
+        # the SSH/thickness, velocity, and SST sub-blocks of the prior
+        # ensemble.  Allows factors < 1 (deflation) to cure over-dispersion.
+        self.adaptive_inflation = bool(params.get('adaptive_inflation', False))
+        self.infl_min = float(params.get('infl_min', 0.25))
+        self.infl_max = float(params.get('infl_max', 2.0))
+        self.infl_relax = float(params.get('infl_relax', 0.2))
+        # Deadband (in units of the spread/error ratio) inside which a field is
+        # treated as already calibrated and its inflation factor is held fixed
+        # -- in particular a calibrated field is never deflated.
+        self.infl_deadband = float(params.get('infl_deadband', 0.15))
+        self.infl_lambda = {'ssh': 1.0, 'vel': 1.0, 'sst': 1.0}
+        # Most recent cross-validation calibration ratio (rmse_cv / spread) per
+        # field group; drives the cv-aware feedback controller.  NaN until the
+        # first scored cycle is available.
+        self._cv_ratio = {'ssh': np.nan, 'vel': np.nan, 'sst': np.nan}
+        self.infl_ssh = self.infl_vel = self.infl_sst = None
 
         if self.verbose:
             print(f"[LSMCMC] assimilate_fields='{assimilate_fields}' "
@@ -344,6 +378,79 @@ class Loc_SMCMC_MLSWE_Filter:
         return h0_list, u0_list, v0_list, T0_list
 
     # ------------------------------------------------------------------
+    #  Adaptive per-field inflation/deflation
+    # ------------------------------------------------------------------
+    def _adaptive_inflate(self, y_valid, obs_ind_ml, sig_y_cycle,
+                          forecast_mean, cycle):
+        """Innovation-consistency per-field inflation with a cv deflation guard.
+
+        For each observed field group (SSH/thickness, velocity, SST) the
+        target factor solves the consistency relation in observation space
+
+            E[d^2] = lambda^2 * var_b + R ,
+
+        where ``d = y - H x_f`` is the prior innovation, ``var_b`` the prior
+        ensemble variance in observation space, and ``R`` the observation-error
+        variance.  This estimate is numerically stable (bounded, non-
+        compounding).  A *deflation guard* then overrides any factor below one
+        when independent held-out cross-validation reports the field as already
+        calibrated -- i.e. the ratio ``r = rmse_cv / spread`` is not
+        significantly below one (``r >= 1 - infl_deadband``).  This prevents the
+        prior-innovation estimate from spuriously collapsing a well-tuned sub-
+        ensemble (as can happen when synthetic observations sit very close to
+        the truth).  The factor is relaxed across cycles and clipped to
+        ``[infl_min, infl_max]``; the forecast mean is preserved exactly.
+        """
+        nc = self.ncells
+        masks = _diag.var_masks(obs_ind_ml, nc)          # (ssh, vel, sst)
+        sig2 = (np.asarray(sig_y_cycle, dtype=float) ** 2
+                if np.ndim(sig_y_cycle) else float(sig_y_cycle) ** 2)
+        innov = y_valid - forecast_mean[obs_ind_ml]
+        ens = self.forecast[obs_ind_ml, :]
+        var_b_obs = ens.var(axis=1, ddof=1)
+
+        # State-index ranges for the three layer-0 field groups
+        idx_groups = {
+            'ssh': np.arange(0, nc),
+            'vel': np.arange(nc, 3 * nc),
+            'sst': np.arange(3 * nc, 4 * nc),
+        }
+        mean_col = forecast_mean[:, None]
+        for nm, m in zip(('ssh', 'vel', 'sst'), masks):
+            if m.sum() < 2:
+                continue
+            # Innovation-consistency target (stable, non-compounding)
+            mean_d2 = float(np.mean(innov[m] ** 2))
+            R = float(np.mean(sig2[m])) if np.ndim(sig2) else float(sig2)
+            var_b = float(np.mean(var_b_obs[m]))
+            if var_b <= 1e-12:
+                continue
+            lam2 = (mean_d2 - R) / var_b
+            target = float(np.sqrt(max(lam2, 1e-6)))
+            target = min(max(target, self.infl_min), self.infl_max)
+            # Deflation guard: never deflate a field that held-out cross-
+            # validation reports as already calibrated.
+            r = self._cv_ratio.get(nm, np.nan)
+            if (target < 1.0 and np.isfinite(r)
+                    and r >= 1.0 - self.infl_deadband):
+                target = 1.0
+            # Relax across cycles to damp sampling noise, then clip
+            lam_new = ((1.0 - self.infl_relax) * self.infl_lambda[nm]
+                       + self.infl_relax * target)
+            self.infl_lambda[nm] = min(max(lam_new, self.infl_min),
+                                       self.infl_max)
+            lam_use = self.infl_lambda[nm]
+            idx = idx_groups[nm]
+            self.forecast[idx, :] = (
+                mean_col[idx]
+                + lam_use * (self.forecast[idx, :] - mean_col[idx]))
+
+        if self.infl_ssh is not None:
+            self.infl_ssh[cycle] = self.infl_lambda['ssh']
+            self.infl_vel[cycle] = self.infl_lambda['vel']
+            self.infl_sst[cycle] = self.infl_lambda['sst']
+
+    # ------------------------------------------------------------------
     #  Advance ensemble
     # ------------------------------------------------------------------
     def _advance_ensemble(self, models, nsteps, add_noise=True):
@@ -505,6 +612,24 @@ class Loc_SMCMC_MLSWE_Filter:
         rmse_sst_all = np.full(self.nassim, np.nan)
         rmse_ssh_all = np.full(self.nassim, np.nan)
 
+        # Optional diagnostic accumulators
+        Nf = self.forecast.shape[1]
+        if self.save_spread:
+            self.spread_vel = np.full(self.nassim, np.nan)
+            self.spread_sst = np.full(self.nassim, np.nan)
+            self.spread_ssh = np.full(self.nassim, np.nan)
+            self.rankhist = {nm: np.zeros(Nf + 1, dtype=np.int64)
+                             for nm in ('ssh', 'vel', 'sst')}
+        if self.cv_fraction > 0:
+            self.rmse_cv_vel = np.full(self.nassim, np.nan)
+            self.rmse_cv_sst = np.full(self.nassim, np.nan)
+            self.rmse_cv_ssh = np.full(self.nassim, np.nan)
+
+        if self.adaptive_inflation:
+            self.infl_ssh = np.full(self.nassim, np.nan)
+            self.infl_vel = np.full(self.nassim, np.nan)
+            self.infl_sst = np.full(self.nassim, np.nan)
+
         for cycle in range(self.nassim):
             t0_wall = time.time()
 
@@ -548,6 +673,41 @@ class Loc_SMCMC_MLSWE_Filter:
             obs_ind_ml = self._obs_ind_to_layer0(ind_valid)
             obs_ind_cell = self._obs_ind_to_cell(ind_valid)
 
+            # [ADAPTIVE INFLATION] rescale prior per-field before analysis.
+            # Applied to the actually-used ensemble so the spread diagnostic
+            # below reflects the post-inflation (calibrated) prior.
+            if self.adaptive_inflation and not self.free_run:
+                self._adaptive_inflate(
+                    y_valid, obs_ind_ml, sig_y_cycle, forecast_mean, cycle)
+
+            # [DIAG] forecast-ensemble spread + rank histogram (prior, all obs)
+            if self.save_spread:
+                sp = _diag.spread_and_rank(
+                    self.forecast, obs_ind_ml, y_valid, self.ncells,
+                    self.rankhist, self._diag_rng)
+                self.spread_ssh[cycle] = sp['ssh']
+                self.spread_vel[cycle] = sp['vel']
+                self.spread_sst[cycle] = sp['sst']
+
+            # [CV] withhold a fraction of obs from assimilation for scoring
+            cv_hold = None
+            obs_ind_hold = y_hold = None
+            if self.cv_fraction > 0:
+                assim_m, cv_hold = _diag.cv_split(
+                    ind_valid.shape[0], self.cv_fraction,
+                    self.cv_seed + cycle)
+                if cv_hold.any():
+                    obs_ind_hold = obs_ind_ml[cv_hold]
+                    y_hold = y_valid[cv_hold]
+                    # Restrict the assimilated set to the kept observations
+                    y_valid = y_valid[assim_m]
+                    ind_valid = ind_valid[assim_m]
+                    obs_ind_ml = obs_ind_ml[assim_m]
+                    obs_ind_cell = obs_ind_cell[assim_m]
+                    if (isinstance(sig_y_cycle, np.ndarray)
+                            and sig_y_cycle.size == assim_m.size):
+                        sig_y_cycle = sig_y_cycle[assim_m]
+
             # Get all cells in blocks containing observations
             loc_cells = self.get_observed_blocks_cells(obs_ind_cell)
             if loc_cells.size == 0:
@@ -576,21 +736,25 @@ class Loc_SMCMC_MLSWE_Filter:
             # Local state & noise
             sig_x_loc = self.sig_x_vec[loc_cells]
 
-            # Sample posterior
-            try:
-                anal_ens_loc, mu = sample_posterior_mixture_sparse(
-                    self.forecast[loc_cells].T,
-                    Ho,
-                    sig_x_loc,
-                    sig_y_vec,
-                    y_loc,
-                    n_samples=self.mcmc_N,
-                )
-                anal_ens_loc, _ = gaussian_block_means(anal_ens_loc, self.nforecast)
-            except Exception as e:
-                warnings.warn(f"Cycle {cycle}: posterior sampling failed: {e}")
-                self.lsmcmc_mean[cycle + 1] = forecast_mean
-                continue
+            # Sample posterior (skipped entirely in free-run / no-DA mode)
+            if self.free_run:
+                anal_ens_loc = self.forecast[loc_cells]
+                mu = forecast_mean[loc_cells]
+            else:
+                try:
+                    anal_ens_loc, mu = sample_posterior_mixture_sparse(
+                        self.forecast[loc_cells].T,
+                        Ho,
+                        sig_x_loc,
+                        sig_y_vec,
+                        y_loc,
+                        n_samples=self.mcmc_N,
+                    )
+                    anal_ens_loc, _ = gaussian_block_means(anal_ens_loc, self.nforecast)
+                except Exception as e:
+                    warnings.warn(f"Cycle {cycle}: posterior sampling failed: {e}")
+                    self.lsmcmc_mean[cycle + 1] = forecast_mean
+                    continue
 
             # Update
             self.lsmcmc_mean[cycle + 1] = forecast_mean.copy()
@@ -600,7 +764,7 @@ class Loc_SMCMC_MLSWE_Filter:
             # Post-analysis SSH relaxation: pull h_total back toward
             # H_b + eta_ref to prevent analysis-induced SSH drift.
             ssh_relax = float(self.params.get('ssh_relax_rate', 0.0))
-            if ssh_relax > 0:
+            if ssh_relax > 0 and not self.free_run:
                 nc_ = self.ncells
                 fpl = self.fields_per_layer
                 h_total_anal = self.lsmcmc_mean[cycle + 1, :nc_].copy()
@@ -655,6 +819,25 @@ class Loc_SMCMC_MLSWE_Filter:
                 rmse_sst_all[cycle] = np.sqrt(np.mean(residuals[sst_mask]**2))
             if ssh_mask.sum() > 0:
                 rmse_ssh_all[cycle] = np.sqrt(np.mean(residuals[ssh_mask]**2))
+
+            # [CV] score the analysis mean against the withheld observations
+            if cv_hold is not None and cv_hold.any():
+                cv = _diag.cv_rmse(z_a, obs_ind_hold, y_hold, nc)
+                self.rmse_cv_ssh[cycle] = cv['ssh']
+                self.rmse_cv_vel[cycle] = cv['vel']
+                self.rmse_cv_sst[cycle] = cv['sst']
+                # Update the calibration ratio (rmse_cv / spread) that drives
+                # the cv-aware adaptive-inflation feedback on the next cycle.
+                if self.adaptive_inflation and self.save_spread:
+                    _sp = {'ssh': self.spread_ssh, 'vel': self.spread_vel,
+                           'sst': self.spread_sst}
+                    for _nm in ('ssh', 'vel', 'sst'):
+                        _rc = cv[_nm]
+                        _spc = (_sp[_nm][cycle] if _sp[_nm] is not None
+                                else np.nan)
+                        if (np.isfinite(_rc) and np.isfinite(_spc)
+                                and _spc > 1e-12):
+                            self._cv_ratio[_nm] = _rc / _spc
 
             elapsed = time.time() - t0_wall
             if self.verbose and ((cycle + 1) % 10 == 0 or cycle == 0):
@@ -730,6 +913,36 @@ class Loc_SMCMC_MLSWE_Filter:
         vs[:] = self.rmse_sst.astype(np.float32)
         vh = nc.createVariable('rmse_ssh', 'f4', ('cycle',))
         vh[:] = self.rmse_ssh.astype(np.float32)
+
+        # ---- Optional diagnostics ----
+        nc.free_run = int(self.free_run)
+        if self.save_spread and self.spread_vel is not None:
+            for nm, arr in (('vel', self.spread_vel),
+                            ('sst', self.spread_sst),
+                            ('ssh', self.spread_ssh)):
+                vv = nc.createVariable(f'spread_{nm}', 'f4', ('cycle',))
+                vv[:] = np.asarray(arr, dtype=np.float32)
+            if self.rankhist is not None:
+                nrank = len(next(iter(self.rankhist.values())))
+                nc.createDimension('rank', nrank)
+                for nm in ('ssh', 'vel', 'sst'):
+                    vv = nc.createVariable(f'rankhist_{nm}', 'i8', ('rank',))
+                    vv[:] = np.asarray(self.rankhist[nm], dtype=np.int64)
+        if self.cv_fraction > 0 and self.rmse_cv_vel is not None:
+            nc.cv_fraction = float(self.cv_fraction)
+            for nm, arr in (('vel', self.rmse_cv_vel),
+                            ('sst', self.rmse_cv_sst),
+                            ('ssh', self.rmse_cv_ssh)):
+                vv = nc.createVariable(f'rmse_cv_{nm}', 'f4', ('cycle',))
+                vv[:] = np.asarray(arr, dtype=np.float32)
+
+        nc.adaptive_inflation = int(self.adaptive_inflation)
+        if self.adaptive_inflation and self.infl_ssh is not None:
+            for nm, arr in (('vel', self.infl_vel),
+                            ('sst', self.infl_sst),
+                            ('ssh', self.infl_ssh)):
+                vv = nc.createVariable(f'infl_{nm}', 'f4', ('cycle',))
+                vv[:] = np.asarray(arr, dtype=np.float32)
 
         # Save bathymetry so plotter always uses the correct H_b
         if H_b is not None:

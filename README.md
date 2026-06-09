@@ -1865,6 +1865,70 @@ python3 -u mcmc_diagnostics.py example_input_mlswe_nldata_V2_twin.yml
 This produces traceplots, effective sample size (ESS), and split-$\hat{R}$
 diagnostics for the MCMC chains.
 
+### Ensemble-Calibration Diagnostics & Adaptive Inflation
+
+All four filter modules (`lsmcmc_V1`, `lsmcmc_V2`, `lsmcmc_nl_V1`,
+`lsmcmc_nl_V2`) support a set of optional, **default-OFF** diagnostics that
+quantify and correct ensemble calibration. They can be enabled either through
+the YAML config or through environment-variable overrides (useful for sweeping
+without duplicating configs). Every knob is safe to leave unset — the filter
+behaviour is unchanged when they are off.
+
+| Config key | Env override | Default | Meaning |
+|--|--|:--:|--|
+| `free_run` | `MLSWE_FREE_RUN` | `false` | No-DA forecast baseline (skips the analysis update). |
+| `save_spread` | `MLSWE_SAVE_SPREAD` | `false` | Save per-field forecast spread + rank histograms. |
+| `cv_fraction` | `MLSWE_CV_FRACTION` | `0.0` | Fraction of observations withheld each cycle for cross-validation scoring. |
+| `cv_seed` | `MLSWE_CV_SEED` | `12345` | RNG seed for the held-out split. |
+| `adaptive_inflation` | `MLSWE_ADAPT_INFL` | `false` | Enable per-field adaptive inflation/deflation (below). |
+| `infl_min` | `MLSWE_INFL_MIN` | `0.25` | Lower clip on the inflation factor $\lambda$. |
+| `infl_max` | `MLSWE_INFL_MAX` | `2.0` | Upper clip on $\lambda$. |
+| `infl_relax` | `MLSWE_INFL_RELAX` | `0.2` | Cross-cycle relaxation weight (smaller = smoother). |
+| `infl_deadband` | `MLSWE_INFL_DEADBAND` | `0.15` | Cross-validation deflation-guard width (below). |
+
+**Adaptive inflation.** For each observed field group (SSH/thickness,
+velocity, SST) the prior sub-ensemble is rescaled about its mean by a factor
+$\lambda$ derived from the innovation-consistency relation in observation
+space,
+
+$$
+\mathbb{E}[d^2] = \lambda^2\,\sigma_b^2 + R, \qquad d = y - H x_f,
+$$
+
+where $\sigma_b^2$ is the prior ensemble variance and $R$ the observation-error
+variance. Factors above one inflate an under-dispersed field; factors below one
+deflate an over-dispersed one. $\lambda$ is relaxed across cycles and clipped to
+$[\texttt{infl\_min}, \texttt{infl\_max}]$, and the ensemble **mean is preserved
+exactly**.
+
+**Cross-validation deflation guard.** Because the innovation estimate can
+spuriously collapse a field that is *already* calibrated (e.g. in twin
+experiments where synthetic observations sit very close to the truth), any
+$\lambda < 1$ is overridden back to $1$ whenever the independent held-out ratio
+$r = \text{rmse\_cv}/\text{spread}$ is not significantly below one
+($r \ge 1 - \texttt{infl\_deadband}$). This requires `save_spread` and
+`cv_fraction > 0`. The guard prevents unjustified deflation while still allowing
+genuine over-dispersion to be corrected.
+
+Diagnostics are written into the run's `mlswe_lsmcmc_out.nc` as
+`spread_{ssh,vel,sst}`, `rmse_cv_{ssh,vel,sst}`, and `infl_{ssh,vel,sst}`, with
+the `adaptive_inflation`, `cv_fraction`, and `free_run` flags stored as global
+attributes.
+
+```bash
+# Example: 240-cycle linear-data V2 run with calibration diagnostics + inflation
+cd ldata_real_ob_gaussian
+MLSWE_SAVE_SPREAD=1 MLSWE_CV_FRACTION=0.2 \
+MLSWE_ADAPT_INFL=1 MLSWE_INFL_MIN=0.5 MLSWE_INFL_RELAX=0.1 \
+MLSWE_OUTDIR=./output_lsmcmc_ldata_V2_infl \
+    python3 -u run_mlswe_lsmcmc_ldata_V2.py example_input_mlswe_ldata_V2.yml
+```
+
+A well-calibrated field has $\text{rmse\_cv}/\text{spread}\approx 1$. On the
+linear-data V2 experiment the scheme moves all three fields from strongly
+miscalibrated (velocity $1.5$, SST $0.7$, SSH $2.5$) into the
+$0.8\text{–}1.3$ band.
+
 ### SWOT SSH Pre-Processing
 
 Before running experiments with real SSH data, the SWOT observations must
