@@ -221,7 +221,7 @@ class Loc_SMCMC_MLSWE_Filter_V2:
         print(f"[LSMCMC-v2] Noise: h0={sig_h0:.4f}, u0,v0={sig_u0:.4f}, "
               f"T0={sig_t0:.4f}, layers 1,2=0 (unobserved)")
 
-        # ---- Optional reviewer-requested diagnostics (default OFF) ----
+        # ---- Optional ensemble-calibration diagnostics (default OFF) ----
         self.free_run = bool(params.get('free_run', False))
         self.save_spread = bool(params.get('save_spread', False))
         self.cv_fraction = float(params.get('cv_fraction', 0.0))
@@ -229,6 +229,9 @@ class Loc_SMCMC_MLSWE_Filter_V2:
         self._diag_rng = np.random.default_rng(self.cv_seed)
         self.spread_vel = self.spread_sst = self.spread_ssh = None
         self.rmse_cv_vel = self.rmse_cv_sst = self.rmse_cv_ssh = None
+        # Held-out (out-of-sample) prior ensemble spread at the withheld obs
+        # locations -- the spread counterpart of rmse_cv_*.
+        self.spread_cv_vel = self.spread_cv_sst = self.spread_cv_ssh = None
         self.rankhist = None
 
         # ---- Adaptive per-field inflation/deflation (default OFF) ----
@@ -655,9 +658,12 @@ class Loc_SMCMC_MLSWE_Filter_V2:
             H_loc = build_H_loc_from_global(
                 obs_global, halo_cells, drop_unmapped=True)
 
-            # Gaspari-Cohn–tapered per-obs σ_y
+            # Gaspari-Cohn–tapered per-obs σ_y.
+            # GC length scale = r_loc/2 so the taper support (2*scale) equals
+            # the halo radius r_loc: S decays smoothly from 1 at the centroid
+            # to 0 at the halo boundary (smooth transition, no jump).
             dist_local = dist_obs[nearby_idx][:H_loc.shape[0]]
-            gc_w = self._gaspari_cohn(dist_local, r_loc)
+            gc_w = self._gaspari_cohn(dist_local, r_loc / 2.0)
             gc_w = np.maximum(gc_w, 1e-6)
 
             if isinstance(sig_y_base, np.ndarray) and sig_y_base.size > 1:
@@ -999,6 +1005,9 @@ class Loc_SMCMC_MLSWE_Filter_V2:
             self.rmse_cv_vel = np.full(self.nassim, np.nan)
             self.rmse_cv_sst = np.full(self.nassim, np.nan)
             self.rmse_cv_ssh = np.full(self.nassim, np.nan)
+            self.spread_cv_vel = np.full(self.nassim, np.nan)
+            self.spread_cv_sst = np.full(self.nassim, np.nan)
+            self.spread_cv_ssh = np.full(self.nassim, np.nan)
         if self.adaptive_inflation:
             self.infl_ssh = np.full(self.nassim, np.nan)
             self.infl_vel = np.full(self.nassim, np.nan)
@@ -1061,7 +1070,7 @@ class Loc_SMCMC_MLSWE_Filter_V2:
             if self.save_spread:
                 sp = _diag.spread_and_rank(
                     self.forecast, obs_ind_ml, y_valid, self.ncells,
-                    self.rankhist, self._diag_rng)
+                    self.rankhist, self._diag_rng, sig_y=sig_y_cycle)
                 self.spread_ssh[cycle] = sp['ssh']
                 self.spread_vel[cycle] = sp['vel']
                 self.spread_sst[cycle] = sp['sst']
@@ -1083,6 +1092,14 @@ class Loc_SMCMC_MLSWE_Filter_V2:
                     if (isinstance(sig_y_cycle, np.ndarray)
                             and sig_y_cycle.size == assim_m.size):
                         sig_y_cycle = sig_y_cycle[assim_m]
+                    # [CV] out-of-sample prior ensemble spread at the withheld
+                    # locations (self.forecast is still the prior here).
+                    if self.spread_cv_vel is not None:
+                        spc = _diag.obs_spread(
+                            self.forecast, obs_ind_hold, self.ncells)
+                        self.spread_cv_ssh[cycle] = spc['ssh']
+                        self.spread_cv_vel[cycle] = spc['vel']
+                        self.spread_cv_sst[cycle] = spc['sst']
 
             if self.free_run:
                 # No-DA baseline: skip the analysis update entirely
@@ -1291,6 +1308,13 @@ class Loc_SMCMC_MLSWE_Filter_V2:
                             ('ssh', self.rmse_cv_ssh)):
                 vv = ds.createVariable(f'rmse_cv_{nm}', 'f4', ('cycle',))
                 vv[:] = np.asarray(arr, dtype=np.float32)
+            if self.spread_cv_vel is not None:
+                for nm, arr in (('vel', self.spread_cv_vel),
+                                ('sst', self.spread_cv_sst),
+                                ('ssh', self.spread_cv_ssh)):
+                    vv = ds.createVariable(
+                        f'spread_cv_{nm}', 'f4', ('cycle',))
+                    vv[:] = np.asarray(arr, dtype=np.float32)
 
         ds.adaptive_inflation = int(self.adaptive_inflation)
         if self.adaptive_inflation and self.infl_ssh is not None:

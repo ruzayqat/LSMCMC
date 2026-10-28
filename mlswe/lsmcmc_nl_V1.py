@@ -478,7 +478,7 @@ class NL_SMCMC_MLSWE_Filter:
 
         self.verbose = params.get('verbose', True)
 
-        # ---- Optional reviewer-requested diagnostics (default OFF) ----
+        # ---- Optional ensemble-calibration diagnostics (default OFF) ----
         self.free_run = bool(params.get('free_run', False))
         self.save_spread = bool(params.get('save_spread', False))
         self.cv_fraction = float(params.get('cv_fraction', 0.0))
@@ -1211,8 +1211,32 @@ class NL_SMCMC_MLSWE_Filter:
         self.forecast = np.zeros((self.dimx, Nf))
         ic_flat = init_model.state_flat.copy()
         member_times = np.full(Nf, float(init_model.t))
-        for j in range(Nf):
-            self.forecast[:, j] = ic_flat
+        # Optional initial-condition perturbation for twin experiments.
+        # Gated by 'init_perturb_scale' (default 0 => no perturbation, so
+        # ldata / nlgamma / linear-Gaussian experiments are unaffected).
+        # The filter (and free run) ensemble is displaced from the nature
+        # run by a coherent offset (identical across members, so the
+        # ensemble MEAN genuinely differs from truth at t=0) plus zero-mean
+        # spread across members.  Both are scaled by init_perturb_scale *
+        # sig_x_vec, i.e. per-field relative to the process-noise std, so
+        # only the assimilated layer-0 fields (u, v, h, T) are touched.
+        init_perturb_scale = float(self.params.get('init_perturb_scale', 0.0))
+        if init_perturb_scale > 0.0:
+            rng_ic = np.random.default_rng(
+                int(self.params.get('init_perturb_seed', 12345)))
+            coherent = (init_perturb_scale * self.sig_x_vec
+                        * rng_ic.standard_normal(self.dimx))
+            for j in range(Nf):
+                spread = (init_perturb_scale * self.sig_x_vec
+                          * rng_ic.standard_normal(self.dimx))
+                self.forecast[:, j] = ic_flat + coherent + spread
+            if self.verbose:
+                print(f"[NL-LSMCMC-v1] Applied initial-condition "
+                      f"perturbation (scale={init_perturb_scale} x sig_x, "
+                      f"coherent offset + ensemble spread) for twin run")
+        else:
+            for j in range(Nf):
+                self.forecast[:, j] = ic_flat
         # Keep one model for serial fallback (no extra memory)
         self._serial_model = init_model
         if self.verbose:
@@ -1294,15 +1318,15 @@ class NL_SMCMC_MLSWE_Filter:
                 self._adaptive_inflate(
                     y_valid, obs_ind_ml, sig_y_cycle, forecast_mean, cycle)
 
-            # [DIAG] forecast-ensemble spread + rank histogram (prior, all obs)
+            # [DIAG] rank histogram (prior, observation space).  The reported
+            # ensemble spread is computed below in the same space as the RMSE
+            # from the posterior ensemble (an obs-space spread saturates to ~0
+            # under the arctan operator on large-magnitude SST/thickness).
             if self.save_spread:
-                sp = _diag.spread_and_rank(
+                _diag.spread_and_rank(
                     self.forecast, obs_ind_ml, y_valid, self.ncells,
                     self.rankhist, self._diag_rng,
-                    transform=self._diag_transform)
-                self.spread_ssh[cycle] = sp['ssh']
-                self.spread_vel[cycle] = sp['vel']
-                self.spread_sst[cycle] = sp['sst']
+                    transform=self._diag_transform, sig_y=sig_y_cycle)
 
             # [CV] withhold a fraction of obs from assimilation for scoring
             cv_hold = None
@@ -1422,6 +1446,22 @@ class NL_SMCMC_MLSWE_Filter:
                         h_j - anal_relax_frac * (eta_j - eta_ref))
 
             # (No model sync needed — state tracked in self.forecast)
+
+            # [DIAG] posterior ensemble spread, matched to the RMSE space:
+            #   * twin       -> STATE-space full-field spread (vs-truth RMSE)
+            #   * real data  -> spread at the observation locations
+            # Both use the posterior ensemble in physical units (no arctan
+            # transform), so the time-mean spread is comparable to the RMSE.
+            if self.save_spread:
+                if (hasattr(self, '_rmse_obs_only')
+                        and self._rmse_obs_only):
+                    ssp = _diag.obs_spread(
+                        self.forecast, obs_ind_ml, self.ncells)
+                else:
+                    ssp = _diag.state_spread(self.forecast, self.ncells)
+                self.spread_ssh[cycle] = ssp['ssh']
+                self.spread_vel[cycle] = ssp['vel']
+                self.spread_sst[cycle] = ssp['sst']
 
             # RMSE — against truth if available, else state-space
             z_a = self.lsmcmc_mean[cycle + 1]

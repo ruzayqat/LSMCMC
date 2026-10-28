@@ -114,9 +114,9 @@ geostrophic_blend: 0.0
 # sig_x_uv:  process noise for u,v (must be large enough for ensemble spread)
 # sig_x_ssh: process noise for SSH
 # sig_x_sst: process noise for SST
-sig_x_uv: 0.15         # process noise std for u, v
-sig_x_ssh: 0.2        # Standardized process noise
-sig_x_sst: 1.0         # process noise std for SST
+sig_x_uv: 0.03         # ADOPTED (Option B, calibrated): vel spread/RMSE~1.30. was 0.15 (over-disp 13x)
+sig_x_ssh: 0.2        # keep: h spread/RMSE ratio ~0.79-0.91 already calibrated
+sig_x_sst: 0.27        # ADOPTED (Option B, calibrated): sst spread/RMSE~0.62. was 1.0 (over-disp 10x)
 # Noise decay per layer: surface gets full noise, deep layers minimal
 # (deep layers are nearly unobserved; focusing noise on surface improves DA)
 noise_decay: [1.0, 0.01, 0.01]

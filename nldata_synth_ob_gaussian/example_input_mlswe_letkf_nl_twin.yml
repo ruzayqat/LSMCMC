@@ -73,7 +73,14 @@ geostrophic_blend: 0.5
 # ---- Process noise ----
 sig_x_uv: 0.15
 sig_x_ssh: 0.5
-sig_x_sst: 1.0
+sig_x_sst: 1.0             # SST process noise (kept at 1.0; spread tuned via LETKF localization instead)
+
+# ---- Twin initial-condition perturbation ----
+# Coherent displacement of the LETKF ensemble mean from the nature run at
+# t=0 (matches the LSMCMC twin setup for a fair comparison).  Set to 0 to
+# disable.
+init_perturb_scale: 3.0
+init_perturb_seed: 12345
 noise_decay: [1.0, 0.01, 0.01]
 
 # ---- Observations (synthetic arctan obs from twin runner) ----

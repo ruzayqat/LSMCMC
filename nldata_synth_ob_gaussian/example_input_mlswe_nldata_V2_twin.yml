@@ -71,9 +71,19 @@ sponge_timescale: 3600.0
 geostrophic_blend: 0.0
 
 # ---- Process noise ----
+# Twin experiment: identical process noise across V1/V2/LETKF for a fair
+# comparison (matches the parameter table in the paper: 0.15/0.50/1.0).
 sig_x_uv: 0.15
 sig_x_ssh: 0.5
 sig_x_sst: 1.0
+
+# ---- Twin initial-condition perturbation ----
+# Displaces the filter (and free-run) ensemble from the deterministic nature
+# run at t=0 by a coherent offset (identical across members) plus zero-mean
+# spread, both scaled by this factor times sig_x.  Makes the no-DA free run
+# diverge so assimilation skill is demonstrable.  Set to 0 to disable.
+init_perturb_scale: 3.0
+init_perturb_seed: 12345
 noise_decay: [1.0, 0.01, 0.01]
 
 # ---- Observations (locations from real file, values synthetic) ----
@@ -95,7 +105,7 @@ burn_in: 500
 num_subdomains: 700
 
 # Per-block halo localization (V2-specific)
-r_loc: 1.5
+r_loc: 2.0                 # spread-tune p3: 1.5->2.0 (bigger halo=more obs/block=tighter posterior=less spread; over-dispersed)
 rtps_alpha: 0.0
 gc_noise_inflate: false
 reset_interval: 0

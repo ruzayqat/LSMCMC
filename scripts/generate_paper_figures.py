@@ -454,11 +454,15 @@ def plot_compare_rmse_3panel(datasets, labels, colors_list, fname, title='RMSE C
                               sigma_vel=0.10, sigma_sst=0.40, sigma_ssh=0.25,
                               ssh_clip=None):
     """
-    3-panel (vel / SST / SSH) RMSE comparison.
+    3-panel (vel / SST / h) RMSE comparison.
     Each entry in datasets is a dict with 'rmse_vel', 'rmse_sst', 'rmse_ssh'.
     Lines are truncated at the length of each dataset (handles LETKF early stopping).
 
-    If ssh_clip is set, SSH traces above ssh_clip are omitted from the SSH panel
+    A dataset may carry an optional 'show_fields' key (a set/list drawn from
+    {'vel', 'sst', 'ssh'}) to restrict which panels it appears in -- used e.g.
+    to show LETKF only in the SST panel when its h diagnostic is unreliable.
+
+    If ssh_clip is set, h traces above ssh_clip are omitted from the h panel
     and annotated with a text label showing their mean value.
     """
     has_ssh = any(d.get('rmse_ssh') is not None for d in datasets)
@@ -467,14 +471,19 @@ def plot_compare_rmse_3panel(datasets, labels, colors_list, fname, title='RMSE C
     _ssh_skip_count = 0
 
     for d, lab, col in zip(datasets, labels, colors_list):
+        show = set(d.get('show_fields', {'vel', 'sst', 'ssh'}))
         n = len(d['rmse_vel'])
         t = np.arange(1, n + 1)
         vel = np.asarray(d['rmse_vel'], dtype=float)
         sst = np.asarray(d['rmse_sst'], dtype=float)
         ssh_arr = np.asarray(d['rmse_ssh'], dtype=float) if d.get('rmse_ssh') is not None else None
-        # Truncate at first NaN/Inf
-        valid = np.isfinite(vel) & np.isfinite(sst)
-        if ssh_arr is not None:
+        # Truncate at first NaN/Inf (ignore fields this dataset does not show)
+        valid = np.ones(len(vel), dtype=bool)
+        if 'vel' in show:
+            valid &= np.isfinite(vel)
+        if 'sst' in show:
+            valid &= np.isfinite(sst)
+        if ssh_arr is not None and 'ssh' in show:
             valid &= np.isfinite(ssh_arr)
         if not valid.all():
             last_valid = np.where(valid)[0][-1] + 1 if valid.any() else 0
@@ -484,9 +493,11 @@ def plot_compare_rmse_3panel(datasets, labels, colors_list, fname, title='RMSE C
             if ssh_arr is not None:
                 ssh_arr = ssh_arr[:last_valid]
 
-        axes[0].plot(t, vel, color=col, linewidth=2, label=lab)
-        axes[1].plot(t, sst, color=col, linewidth=2, label=lab)
-        if has_ssh and ssh_arr is not None:
+        if 'vel' in show:
+            axes[0].plot(t, vel, color=col, linewidth=2, label=lab)
+        if 'sst' in show:
+            axes[1].plot(t, sst, color=col, linewidth=2, label=lab)
+        if has_ssh and ssh_arr is not None and 'ssh' in show:
             ssh_mean = float(np.nanmean(ssh_arr))
             if ssh_clip is not None and ssh_mean > ssh_clip:
                 # Off-scale: annotate instead of plotting
@@ -506,7 +517,7 @@ def plot_compare_rmse_3panel(datasets, labels, colors_list, fname, title='RMSE C
                     label=f'$\\sigma_{{SST}}={sigma_sst}$')
     if has_ssh:
         axes[2].axhline(y=sigma_ssh, color='gray', linestyle='--', linewidth=1.0, alpha=0.5,
-                        label=f'$\\sigma_{{SSH}}={sigma_ssh}$')
+                        label=f'$\\sigma_{{h}}={sigma_ssh}$')
 
     axes[0].set_ylabel('Velocity RMSE (m/s)')
     axes[0].set_title(title)
@@ -516,8 +527,68 @@ def plot_compare_rmse_3panel(datasets, labels, colors_list, fname, title='RMSE C
     axes[1].legend(loc='lower right')
     axes[1].grid(True, alpha=0.3)
     if has_ssh:
-        axes[2].set_ylabel('SSH RMSE (m)')
+        axes[2].set_ylabel('h RMSE (m)')
         axes[2].legend(loc='lower right')
+        axes[2].grid(True, alpha=0.3)
+    axes[-1].set_xlabel('Assimilation Cycle')
+    fig.tight_layout()
+    savefig(fig, fname)
+
+
+def plot_compare_spread_3panel(datasets, labels, colors_list, fname,
+                               title='Spread Comparison'):
+    """
+    3-panel (vel / SST / h) forecast-ensemble *spread* comparison.
+    Each entry in datasets is a dict with 'spread_vel', 'spread_sst',
+    'spread_ssh'.  Mirrors :func:`plot_compare_rmse_3panel` but plots the
+    cycle-by-cycle ensemble spread (no observation-noise reference lines).
+    Lines are truncated at the first non-finite value (handles early stops).
+    """
+    has_ssh = any(d.get('spread_ssh') is not None for d in datasets)
+    nrows = 3 if has_ssh else 2
+    fig, axes = plt.subplots(nrows, 1, figsize=(10, 3.5 * nrows), sharex=True)
+
+    for d, lab, col in zip(datasets, labels, colors_list):
+        show = d.get('show_fields', None)   # None -> all panels
+        vel = np.asarray(d['spread_vel'], dtype=float)
+        sst = np.asarray(d['spread_sst'], dtype=float)
+        ssh_arr = (np.asarray(d['spread_ssh'], dtype=float)
+                   if d.get('spread_ssh') is not None else None)
+        n = len(vel)
+        t = np.arange(1, n + 1)
+        # Validity truncation only considers the fields actually shown.
+        valid = np.ones(n, dtype=bool)
+        if show is None or 'vel' in show:
+            valid &= np.isfinite(vel)
+        if show is None or 'sst' in show:
+            valid &= np.isfinite(sst)
+        if ssh_arr is not None and (show is None or 'ssh' in show):
+            valid &= np.isfinite(ssh_arr)
+        if not valid.all():
+            last_valid = np.where(valid)[0][-1] + 1 if valid.any() else 0
+            t = t[:last_valid]
+            vel = vel[:last_valid]
+            sst = sst[:last_valid]
+            if ssh_arr is not None:
+                ssh_arr = ssh_arr[:last_valid]
+
+        if show is None or 'vel' in show:
+            axes[0].plot(t, vel, color=col, linewidth=2, label=lab)
+        if show is None or 'sst' in show:
+            axes[1].plot(t, sst, color=col, linewidth=2, label=lab)
+        if has_ssh and ssh_arr is not None and (show is None or 'ssh' in show):
+            axes[2].plot(t, ssh_arr, color=col, linewidth=2, label=lab)
+
+    axes[0].set_ylabel('Velocity Spread (m/s)')
+    axes[0].set_title(title)
+    axes[0].legend(loc='upper right')
+    axes[0].grid(True, alpha=0.3)
+    axes[1].set_ylabel('SST Spread (K)')
+    axes[1].legend(loc='upper right')
+    axes[1].grid(True, alpha=0.3)
+    if has_ssh:
+        axes[2].set_ylabel('h Spread (m)')
+        axes[2].legend(loc='upper right')
         axes[2].grid(True, alpha=0.3)
     axes[-1].set_xlabel('Assimilation Cycle')
     fig.tight_layout()
@@ -815,12 +886,15 @@ def generate_mlswe_ldata_figures():
     """Generate MLSWE linear data model figures."""
     print("\n=== MLSWE Linear Data Model Figures ===")
 
-    v1_nc = os.path.join(BASEDIR, 'output_lsmcmc_ldata_V1', 'mlswe_lsmcmc_out.nc')
-    v2_nc = os.path.join(BASEDIR, 'output_lsmcmc_ldata_V2', 'mlswe_lsmcmc_out.nc')
+    # RMSE/spread comparison uses the diagnostic runs (out-of-sample CV RMSE
+    # for LSMCMC, retuned Option-B LETKF) so the figures match the results table in the paper.
+    v1_nc = os.path.join(BASEDIR, 'output_lsmcmc_ldata_V1_diag', 'mlswe_lsmcmc_out.nc')
+    v2_nc = os.path.join(BASEDIR, 'output_lsmcmc_ldata_V2_diag', 'mlswe_lsmcmc_out.nc')
     letkf_nc_candidates = [
+        os.path.join(BASEDIR, 'output_letkf_best_diag', 'mlswe_letkf_out.nc'),
+        os.path.join(BASEDIR, 'output_letkf_best', 'mlswe_letkf_out.nc'),
         os.path.join(BASEDIR, 'output_letkf_ldata_K25', 'mlswe_letkf_out.nc'),
         os.path.join(BASEDIR, 'output_letkf_ldata', 'mlswe_letkf_out.nc'),
-        os.path.join(BASEDIR, 'output_letkf_best', 'mlswe_letkf_out.nc'),
     ]
     letkf_nc = None
     for c in letkf_nc_candidates:

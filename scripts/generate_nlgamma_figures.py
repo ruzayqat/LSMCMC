@@ -98,14 +98,23 @@ def load_analysis(nc_path):
         rmse_vel = np.asarray(nc.variables['rmse_vel'][:])
         rmse_sst = np.asarray(nc.variables['rmse_sst'][:])
         rmse_ssh = np.asarray(nc.variables['rmse_ssh'][:])
-        H_b = np.asarray(nc.variables['H_b'][:])
+        spread_vel = (np.asarray(nc.variables['spread_vel'][:])
+                      if 'spread_vel' in nc.variables else None)
+        spread_sst = (np.asarray(nc.variables['spread_sst'][:])
+                      if 'spread_sst' in nc.variables else None)
+        spread_ssh = (np.asarray(nc.variables['spread_ssh'][:])
+                      if 'spread_ssh' in nc.variables else None)
+        H_b = (np.asarray(nc.variables['H_b'][:])
+               if 'H_b' in nc.variables else None)
         obs_times = (np.asarray(nc.variables['obs_times'][:])
                      if 'obs_times' in nc.variables else None)
         ny = raw.shape[3]
         nx = raw.shape[4]
     return {
         'raw': raw, 'rmse_vel': rmse_vel, 'rmse_sst': rmse_sst,
-        'rmse_ssh': rmse_ssh, 'H_b': H_b, 'obs_times': obs_times,
+        'rmse_ssh': rmse_ssh, 'spread_vel': spread_vel,
+        'spread_sst': spread_sst, 'spread_ssh': spread_ssh,
+        'H_b': H_b, 'obs_times': obs_times,
         'ny': ny, 'nx': nx,
     }
 
@@ -368,7 +377,7 @@ def plot_compare_rmse(v1_rmse, v2_rmse, fname='nlgamma_compare_rmse.pdf',
     for ax, key, ylabel, sigma, title in zip(
             axes,
             ['vel', 'sst', 'ssh'],
-            ['Velocity RMSE (m/s)', 'SST RMSE (K)', 'SSH RMSE (m)'],
+            ['Velocity RMSE (m/s)', 'SST RMSE (K)', 'h RMSE (m)'],
             [sigma_vel, sigma_sst, sigma_ssh],
             ['Velocity', 'SST', 'SSH']):
         ax.plot(t, v1_rmse[key], color='#1f77b4', linewidth=1.8,
@@ -390,6 +399,32 @@ def plot_compare_rmse(v1_rmse, v2_rmse, fname='nlgamma_compare_rmse.pdf',
     savefig(fig, fname)
 
 
+def plot_rmse_spread_overlay(data, fname='nlgamma_rmse_spread_timeseries.pdf',
+                              exp_name=''):
+    """Plot RMSE and spread versus assimilation cycle for one run."""
+    fig, axes = plt.subplots(3, 1, figsize=(10, 10.5), sharex=True)
+    t = np.arange(1, len(data['rmse_vel']) + 1)
+    panels = [
+        ('vel', 'Velocity RMSE (m/s)'),
+        ('sst', 'SST RMSE (K)'),
+        ('ssh', 'h RMSE (m)'),
+    ]
+    for ax, (key, ylabel) in zip(axes, panels):
+        rmse = np.asarray(data[f'rmse_{key}'])
+        spread = data.get(f'spread_{key}')
+        ax.plot(t, rmse, color='#1f77b4', linewidth=1.8, label='RMSE')
+        if spread is not None:
+            ax.plot(t, spread, color='#ff7f0e', linewidth=1.8,
+                    linestyle='--', label='Spread')
+        ax.set_ylabel(ylabel)
+        ax.legend(loc='upper right')
+        ax.grid(True, alpha=0.3)
+    axes[-1].set_xlabel('Assimilation Cycle')
+    fig.suptitle(f'{exp_name}: RMSE and Spread vs Cycle', y=0.995)
+    fig.tight_layout()
+    savefig(fig, fname)
+
+
 # ────────────────────────────────────────────────────
 # LETKF blowup
 # ────────────────────────────────────────────────────
@@ -398,7 +433,7 @@ def plot_letkf_blowup(cycles, vel, sst, ssh, fname='nlgamma_letkf_blowup.pdf'):
     fig, axes = plt.subplots(3, 1, figsize=(10, 10.5), sharex=True)
     for ax, data, ylabel in zip(
             axes, [vel, sst, ssh],
-            ['Velocity RMSE (m/s)', 'SST RMSE (K)', 'SSH RMSE (m)']):
+            ['Velocity RMSE (m/s)', 'SST RMSE (K)', 'h RMSE (m)']):
         finite = np.isfinite(data)
         ax.semilogy(cycles[finite], data[finite], 's-', color='#2ca02c',
                      linewidth=2.5, markersize=8, label='LETKF', zorder=3)
@@ -426,9 +461,13 @@ def plot_letkf_blowup(cycles, vel, sst, ssh, fname='nlgamma_letkf_blowup.pdf'):
 
 def _run_diagnostic_chain(y_obs, y_ind, sig_y_vec, obs_state_inds,
                           fc_mean_local, truth_local, sig_x_loc,
-                          params, ncells, label, rng=None):
+                          params, ncells, label, rng=None, fc_ens=None):
     """
     Run one pCN MCMC diagnostic chain on the given obs subset.
+
+    If ``fc_ens`` (shape ``(n_obs_states, Nf)``) is supplied, it is used as
+    the shared forecast ensemble so that several chains target the *identical*
+    posterior (required for a valid cross-chain Gelman-Rubin diagnostic).
 
     Returns dict with chain, loglik_trace, acc_trace, beta_trace,
     burn_in, acc_rate, beta_final, obs_state_inds, truth_local, ncells.
@@ -453,9 +492,12 @@ def _run_diagnostic_chain(y_obs, y_ind, sig_y_vec, obs_state_inds,
     Nf = params.get('nforecast', 25)
     if rng is None:
         rng = np.random.default_rng(42)
-    fc_ens = np.zeros((n_obs_states, Nf))
-    for j in range(Nf):
-        fc_ens[:, j] = fc_mean_local + sig_x_loc * rng.standard_normal(n_obs_states)
+    if fc_ens is None:
+        fc_ens = np.zeros((n_obs_states, Nf))
+        for j in range(Nf):
+            fc_ens[:, j] = fc_mean_local + sig_x_loc * rng.standard_normal(n_obs_states)
+    else:
+        Nf = fc_ens.shape[1]
 
     nu = float(params.get('student_t_nu', 2.0))
     half_nup1 = 0.5 * (nu + 1.0)
@@ -545,9 +587,13 @@ def _run_diagnostic_chain(y_obs, y_ind, sig_y_vec, obs_state_inds,
 
 def _run_diagnostic_chain_hmc(y_obs, y_ind, sig_y_vec, obs_state_inds,
                               fc_mean_local, truth_local, sig_x_loc,
-                              params, ncells, label, rng=None):
+                              params, ncells, label, rng=None, fc_ens=None):
     """
     Run an HMC MCMC diagnostic chain on the given obs subset.
+
+    If ``fc_ens`` (shape ``(n_obs_states, Nf)``) is supplied, it is used as
+    the shared forecast ensemble so that several chains target the *identical*
+    posterior (required for a valid cross-chain Gelman-Rubin diagnostic).
 
     Uses leapfrog integration with mass matrix = diag(1/sig_x^2)
     (i.e. we work in the *whitened* coordinate q = (z - m)/sigma).
@@ -575,9 +621,12 @@ def _run_diagnostic_chain_hmc(y_obs, y_ind, sig_y_vec, obs_state_inds,
     Nf = params.get('nforecast', 25)
     if rng is None:
         rng = np.random.default_rng(42)
-    fc_ens = np.zeros((n_obs_states, Nf))
-    for j in range(Nf):
-        fc_ens[:, j] = fc_mean_local + sig_x_loc * rng.standard_normal(n_obs_states)
+    if fc_ens is None:
+        fc_ens = np.zeros((n_obs_states, Nf))
+        for j in range(Nf):
+            fc_ens[:, j] = fc_mean_local + sig_x_loc * rng.standard_normal(n_obs_states)
+    else:
+        Nf = fc_ens.shape[1]
 
     nu = float(params.get('student_t_nu', 2.0))
     half_nup1 = 0.5 * (nu + 1.0)
@@ -847,7 +896,7 @@ def _plot_diagnostic_panel(result, fname, field_type=1):
         ax.tick_params(axis='both', labelsize=14)
         if row == 0:
             ax.set_title('Posterior', fontsize=21)
-            ax.legend(fontsize=16)
+            ax.legend(fontsize=16, loc='upper left')
         if row == n_pick - 1:
             ax.set_xlabel('Value', fontsize=18)
 
@@ -1104,9 +1153,10 @@ def generate_mcmc_diagnostics(v1_data, truth_raw):
         H_loc_v2 = build_H_loc_from_global(
             obs_global_v2, halo_cells, drop_unmapped=True)
 
-        # Gaspari-Cohn noise inflation
+        # Gaspari-Cohn noise inflation (GC length scale = r_loc/2 so the taper
+        # support equals the halo radius r_loc; smooth decay to 0 at boundary).
         dist_local_v2 = dist_obs_v2[nearby_idx][:H_loc_v2.shape[0]]
-        gc_w = _gaspari_cohn(dist_local_v2, r_loc)
+        gc_w = _gaspari_cohn(dist_local_v2, r_loc / 2.0)
         gc_w = np.maximum(gc_w, 1e-6)
 
         # Build y_obs and sig_y for this block
@@ -1145,6 +1195,438 @@ def generate_mcmc_diagnostics(v1_data, truth_raw):
 
 
 # ────────────────────────────────────────────────────
+#  N_a convergence study  (chain-length + Gelman-Rubin)
+# ────────────────────────────────────────────────────
+
+def _cross_chain_rhat(chains):
+    """Gelman-Rubin potential-scale-reduction R-hat across ``m`` chains.
+
+    Parameters
+    ----------
+    chains : list of 1-D arrays (each a post-burn-in chain for one scalar)
+
+    Returns
+    -------
+    rhat : float
+    """
+    m = len(chains)
+    n = min(len(c) for c in chains)
+    if m < 2 or n < 10:
+        return np.nan
+    chains = [np.asarray(c[:n], dtype=float) for c in chains]
+    means = np.array([c.mean() for c in chains])
+    varis = np.array([c.var(ddof=1) for c in chains])
+    W = varis.mean()                                  # within-chain
+    B = n * means.var(ddof=1)                         # between-chain
+    if W < 1e-30:
+        return 1.0
+    var_hat = (n - 1) / n * W + B / n
+    return float(np.sqrt(var_hat / W))
+
+
+def generate_convergence_diagnostics(filter_data, truth_raw, version='V1',
+                                     kernel_override=None,
+                                     include_mcmc_compare=True):
+    """N_a (chain-length) convergence study for the arctan + Cauchy filter.
+
+    Parameters
+    ----------
+    filter_data : dict
+        ``load_analysis`` output for the chosen filter version (used as the
+        forecast/background mean for the offline chains).
+    truth_raw : ndarray
+        Nature-run trajectory (identical seed for V1 and V2).
+    version : {'V1', 'V2'}
+        ``'V1'`` → block-partition localization, **HMC** kernel.
+        ``'V2'`` → halo localization (Gaspari–Cohn), **pCN** kernel.
+
+    Produces (per version, with the version + kernel encoded in the name):
+      1) ``nlgamma_convergence_rmse_vs_Na_<v>.pdf`` — time-mean RMSE (and
+         spread) vs the per-cycle chain length N_a ∈ {2000, 4000, 6000}.
+      2) ``nlgamma_convergence_mcmc_<v>_compare.pdf`` — offline Gelman-Rubin
+         study comparing the **pCN and HMC** kernels side by side at the
+         most-observed cell of BOTH the velocity (u) and SST (T) fields
+         (4 independent chains per kernel/N_a).  Columns: pCN running mean,
+         HMC running mean, pooled posterior (pCN vs HMC), and R-hat / ESS
+         vs N_a (pCN vs HMC).
+    """
+    import yaml
+    from loc_smcmc_swe_exact_from_Gauss import partition_domain
+    from mcmc_diagnostics import compute_ess, autocorr
+
+    version = version.upper()
+    kernel_name = (kernel_override.upper()
+                   if kernel_override is not None else 'pCN')
+    kernel_fn = (_run_diagnostic_chain_hmc
+                 if kernel_name == 'HMC' else _run_diagnostic_chain)
+
+    if version == 'V2':
+        cfg_name = 'example_input_nldata_cauchy_v2.yml'
+        obs_dir = 'output_nlgamma_twin_V2_diag'
+        # Only pCN Na-runs are currently available for V2 RMSE-vs-Na.
+        na_runs = [
+            (2000, 'output_nlgamma_twin_V2_diag/mlswe_lsmcmc_out.nc'),
+            (4000, 'output_nlgamma_twin_V2_Na2/mlswe_lsmcmc_out.nc'),
+            (6000, 'output_nlgamma_twin_V2_Na3/mlswe_lsmcmc_out.nc'),
+        ]
+    else:  # V1
+        version = 'V1'
+        cfg_name = 'example_input_nldata_cauchy_v1.yml'
+        obs_dir = 'output_nlgamma_twin_V1'
+        if kernel_name == 'HMC':
+            na_runs = [
+                (2000, 'output_nlgamma_twin_V1_hmc_Na1/mlswe_lsmcmc_out.nc'),
+                (4000, 'output_nlgamma_twin_V1_hmc_Na2/mlswe_lsmcmc_out.nc'),
+                (6000, 'output_nlgamma_twin_V1_hmc_Na3/mlswe_lsmcmc_out.nc'),
+            ]
+        else:
+            na_runs = [
+                (2000, 'output_nlgamma_twin_V1_diag/mlswe_lsmcmc_out.nc'),
+                (4000, 'output_nlgamma_twin_V1_Na2/mlswe_lsmcmc_out.nc'),
+                (6000, 'output_nlgamma_twin_V1_Na3/mlswe_lsmcmc_out.nc'),
+            ]
+
+    rmse_fname = (f'nlgamma_convergence_rmse_vs_Na_{version.lower()}_'
+                  f'{kernel_name.lower()}.pdf')
+    mcmc_fname = (f'nlgamma_convergence_mcmc_{version.lower()}_'
+                  f'{kernel_name.lower()}.pdf')
+
+    print(f"\n  === N_a convergence study ({version}, {kernel_name}: "
+          f"chain length + Gelman-Rubin) ===")
+
+    # ── (1) Filter-level RMSE / spread vs N_a ───────────────────────────
+    na_vals, rmse_v, rmse_s, rmse_h = [], [], [], []
+    spr_v, spr_s, spr_h = [], [], []
+    for na, rel in na_runs:
+        p = os.path.join(BASEDIR, rel)
+        if not os.path.exists(p):
+            print(f"    Skipping N_a={na} (file not found)")
+            continue
+        d = load_analysis(p)
+        na_vals.append(na)
+        rmse_v.append(float(np.mean(d['rmse_vel'])))
+        rmse_s.append(float(np.mean(d['rmse_sst'])))
+        rmse_h.append(float(np.mean(d['rmse_ssh'])))
+        spr_v.append(float(np.mean(d['spread_vel']))
+                     if d.get('spread_vel') is not None else np.nan)
+        spr_s.append(float(np.mean(d['spread_sst']))
+                     if d.get('spread_sst') is not None else np.nan)
+        spr_h.append(float(np.mean(d['spread_ssh']))
+                     if d.get('spread_ssh') is not None else np.nan)
+        print(f"    N_a={na}: RMSE vel={rmse_v[-1]:.4f} "
+              f"sst={rmse_s[-1]:.4f} ssh={rmse_h[-1]:.4f}")
+
+    if len(na_vals) >= 1:
+        fig, axes = plt.subplots(1, 3, figsize=(16, 4.2))
+        series = [
+            (axes[0], rmse_v, spr_v, 'velocity'),
+            (axes[1], rmse_s, spr_s, 'SST'),
+            (axes[2], rmse_h, spr_h, 'h'),
+        ]
+        for ax, rm, sp, name in series:
+            ax.plot(na_vals, rm, 'o-', color='#1f77b4', lw=2, ms=8,
+                    label='time-mean RMSE')
+            if np.any(np.isfinite(sp)):
+                ax.plot(na_vals, sp, 's--', color='#ff7f0e', lw=2, ms=7,
+                        label='time-mean spread')
+            ax.set_xlabel('chain length $N_a$', fontsize=14)
+            ax.set_ylabel(name, fontsize=14)
+            ax.set_xticks(na_vals)
+            ax.tick_params(axis='both', labelsize=12)
+            ax.grid(alpha=0.3)
+            # Wide y-range anchored at 0 so the near-horizontal convergence
+            # (small RMSE change when doubling/tripling N_a) is visually clear.
+            finite_vals = [v for v in (list(rm) + list(sp))
+                           if np.isfinite(v)]
+            top = max(finite_vals) if finite_vals else 1.0
+            ax.set_ylim(0.0, top * 1.6)
+            ax.legend(fontsize=11, loc='best')
+        fig.suptitle(f'arctan + Cauchy {version} ({kernel_name}): convergence '
+                     'with chain length $N_a$', fontsize=16, y=1.02)
+        fig.tight_layout()
+        savefig(fig, rmse_fname)
+    else:
+        print("    No N_a runs available for RMSE-vs-Na panel")
+
+    if not include_mcmc_compare:
+        return
+
+    # ── (2) Offline Gelman-Rubin: 4 chains × {most-, less-observed} cells ─
+    cfg_v1 = os.path.join(BASEDIR, 'nldata_synth_ob_cauchy', cfg_name)
+    obs_nc = os.path.join(BASEDIR, obs_dir, 'synthetic_nlgamma_obs.nc')
+    if not (os.path.exists(cfg_v1) and os.path.exists(obs_nc)):
+        print("    WARNING: config or obs missing, skipping R-hat study")
+        return
+    with open(cfg_v1) as f:
+        params_v1 = yaml.safe_load(f)
+
+    nx_grid = params_v1['dgx']
+    ny_grid = params_v1['dgy']
+    ncells = nx_grid * ny_grid
+    nlayers, nfields_l0 = 3, 4
+    dimx = nlayers * nfields_l0 * ncells
+
+    with Dataset(obs_nc, 'r') as nc:
+        yobs_all = np.asarray(nc.variables['yobs_all'][:])
+        yind_all = np.asarray(nc.variables['yobs_ind_all'][:])
+        sig_y_all = (np.asarray(nc.variables['sig_y_all'][:])
+                     if 'sig_y_all' in nc.variables else None)
+
+    cycle = min(119, yobs_all.shape[0] - 1)
+    valid = yind_all[cycle] >= 0
+    y_all = yobs_all[cycle][valid]
+    ind_all = yind_all[cycle][valid].astype(int)
+    sig_y_raw = (sig_y_all[cycle][valid] if sig_y_all is not None
+                 else np.ones(len(y_all)) * 0.1)
+
+    field_type_per_obs = (ind_all % (nfields_l0 * ncells)) // ncells
+
+    # sig_x over full state
+    sig_x_uv = params_v1.get('sig_x_uv', 0.15)
+    sig_x_ssh = params_v1.get('sig_x_ssh', 0.50)
+    sig_x_sst = params_v1.get('sig_x_sst', 1.0)
+    sig_x_full = np.zeros(dimx)
+    for k in range(nlayers):
+        base = k * nfields_l0 * ncells
+        sig_x_full[base:base + ncells] = sig_x_ssh
+        sig_x_full[base + ncells:base + 2*ncells] = sig_x_uv
+        sig_x_full[base + 2*ncells:base + 3*ncells] = sig_x_uv
+        sig_x_full[base + 3*ncells:base + 4*ncells] = sig_x_sst
+
+    # ── partition the domain once (shared by all fields) ──
+    if version == 'V2':
+        Gamma = int(params_v1.get('num_subdomains', 700))
+        r_loc = float(params_v1.get('r_loc', 1.5))
+    else:
+        Gamma = int(params_v1.get('num_subdomains', 50))
+        r_loc = None
+    _, part_labels, _, _, _, _, _ = partition_domain(
+        ny_grid, nx_grid, N=Gamma)
+    grid_rows, grid_cols = np.meshgrid(
+        np.arange(ny_grid), np.arange(nx_grid), indexing='ij')
+
+    def _build_field_block(field_type):
+        """Localized state block + obs subset for one layer-0 field.
+
+        ``field_type``: 1=u, 3=T(SST).  Returns a dict with the (shared,
+        fixed-seed) forecast ensemble so every chain targets the identical
+        posterior — see the shared-ensemble note below.
+        """
+        fmask = field_type_per_obs == field_type
+        y_f = y_all[fmask]
+        yi_f = ind_all[fmask]
+        sy_f = sig_y_raw[fmask]
+        if len(y_f) == 0:
+            return None
+        obs_cell = (yi_f % ncells).astype(int)
+        obs_r, obs_c = np.unravel_index(obs_cell, (ny_grid, nx_grid))
+        obs_blocks = np.unique(part_labels[obs_r, obs_c])
+        if version == 'V2':
+            # halo localization: union of halos (radius r_loc) around every
+            # observed block centroid.
+            hmask = np.zeros((ny_grid, nx_grid), dtype=bool)
+            for bid in obs_blocks:
+                bij = np.argwhere(part_labels == bid)
+                cy, cx = bij[:, 0].mean(), bij[:, 1].mean()
+                hmask |= (np.sqrt((grid_rows - cy)**2
+                                  + (grid_cols - cx)**2) < r_loc)
+            flat0 = np.ravel_multi_index(np.where(hmask), (ny_grid, nx_grid))
+        else:
+            # block-partition: all cells in observed partition blocks
+            block_mask = np.isin(part_labels, obs_blocks)
+            ij = np.argwhere(block_mask)
+            flat0 = np.ravel_multi_index(
+                (ij[:, 0], ij[:, 1]), (ny_grid, nx_grid))
+        state_inds = np.sort(flat0 + field_type * ncells)
+
+        # keep only obs that map into this field block
+        col_set = set(state_inds.tolist())
+        kept = np.array([int(g) in col_set for g in yi_f])
+        y_f, yi_f, sy_f = y_f[kept], yi_f[kept], sy_f[kept]
+
+        fc_f = filter_data['raw'][cycle].ravel()[state_inds].copy()
+        truth_f = truth_raw[cycle + 1].ravel()[state_inds]
+        sx_f = sig_x_full[state_inds]
+
+        # most-observed cell of this field
+        obs_cells = (yi_f % ncells).astype(int)
+        cell_counts = np.bincount(obs_cells, minlength=ncells)
+        observed = np.where(cell_counts > 0)[0]
+        most_cell = int(observed[np.argmax(cell_counts[observed])])
+        pos_of = {int(si): i for i, si in enumerate(state_inds)}
+        most_col = pos_of[most_cell + field_type * ncells]
+
+        # ── shared forecast ensemble (fixed seed) across ALL chains ──
+        # A valid cross-chain Gelman-Rubin diagnostic requires every chain to
+        # target the *same* posterior.  Building the ensemble once removes the
+        # per-chain ensemble noise that would otherwise inflate R-hat at
+        # weakly observed cells.
+        Nf_shared = 25
+        ens_rng = np.random.default_rng(20240601 + field_type)
+        fc_ens = np.empty((len(state_inds), Nf_shared))
+        for j in range(Nf_shared):
+            fc_ens[:, j] = fc_f + sx_f * ens_rng.standard_normal(len(state_inds))
+        return dict(y=y_f, yi=yi_f, sy=sy_f, state_inds=state_inds,
+                    fc=fc_f, truth=truth_f, sx=sx_f, fc_ens=fc_ens,
+                    most_cell=most_cell, most_col=most_col,
+                    n_most_obs=int(cell_counts[most_cell]),
+                    n_states=len(state_inds))
+
+    seeds = [42, 123, 2024, 777]
+    na_list = [2000, 4000, 6000]
+    na_big = na_list[-1]
+    kernels = [('pCN', _run_diagnostic_chain),
+               ('HMC', _run_diagnostic_chain_hmc)]
+
+    # field_type, math label, display name
+    field_specs = [(1, 'u', 'velocity $u$'), (3, 'T', 'SST $T$')]
+
+    def _run_field_kernels(blk, ftype, flabel):
+        """Run BOTH kernels across all N_a/seeds at this field's
+        most-observed cell.  Returns nested dict keyed by kernel name."""
+        out = {}
+        for kname, kfn in kernels:
+            per_na = {}
+            for na in na_list:
+                params_diag = dict(params_v1, mcmc_N=na, burn_in=na // 2,
+                                   nforecast=blk['fc_ens'].shape[1],
+                                   hmc_L=10, hmc_eps=0.005)
+                chains = []
+                for sd in seeds:
+                    res = kfn(
+                        blk['y'], blk['yi'], blk['sy'], blk['state_inds'],
+                        blk['fc'], blk['truth'], blk['sx'], params_diag,
+                        ncells,
+                        label=f'conv {version} {kname} {flabel} '
+                              f'N_a={na} seed={sd}',
+                        rng=np.random.default_rng(sd),
+                        fc_ens=blk['fc_ens'])
+                    bi = res['burn_in']
+                    chains.append(res['chain'][bi:, blk['most_col']])
+                per_na[na] = chains
+            rhat = [_cross_chain_rhat(per_na[na]) for na in na_list]
+            ess = [np.mean([compute_ess(c) for c in per_na[na]])
+                   for na in na_list]
+            out[kname] = dict(per_na=per_na, rhat=rhat, ess=ess)
+            for na, rh, es in zip(na_list, rhat, ess):
+                print(f"    [{version} {flabel} {kname}] N_a={na}: "
+                      f"R-hat={rh:.4f} ESS={es:.0f}")
+        return out
+
+    # build & run both fields
+    field_data = []
+    for ftype, flab, fdisp in field_specs:
+        blk = _build_field_block(ftype)
+        if blk is None:
+            print(f"    WARNING: no obs for field {flab}, skipping")
+            continue
+        print(f"    {flab}-field ({version}): {blk['n_states']} states, "
+              f"most-observed cell={blk['most_cell']} "
+              f"({blk['n_most_obs']} obs)")
+        runs = _run_field_kernels(blk, ftype, flab)
+        field_data.append((flab, fdisp, blk, runs))
+
+    if not field_data:
+        print("    WARNING: no field data produced, skipping compare figure")
+        return
+
+    # ── plot: rows = fields (u, SST); cols = pCN run-mean | HMC run-mean
+    #          | pooled posterior (pCN vs HMC) | R-hat & ESS vs N_a ──
+    cmap4 = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+    nrows = len(field_data)
+    fig, axes = plt.subplots(nrows, 4, figsize=(22, 4.6 * nrows))
+    if nrows == 1:
+        axes = axes[np.newaxis, :]
+
+    for r, (flab, fdisp, blk, runs) in enumerate(field_data):
+        tval = blk['truth'][blk['most_col']]
+        cell = blk['most_cell']
+        ncount = blk['n_most_obs']
+
+        # cols 0 & 1: running mean of the 4 chains, per kernel
+        for c, kname in [(0, 'pCN'), (1, 'HMC')]:
+            ax = axes[r, c]
+            chains_big = runs[kname]['per_na'][na_big]
+            for j, ch in enumerate(chains_big):
+                rm = np.cumsum(ch) / np.arange(1, len(ch) + 1)
+                ax.plot(rm, color=cmap4[j], lw=1.0, alpha=0.85,
+                        label=f'chain {j+1}')
+            ax.axhline(tval, color='green', lw=1.8, alpha=0.8,
+                       label='nature run')
+            rh_big = runs[kname]['rhat'][-1]
+            ess_big = runs[kname]['ess'][-1]
+            ax.text(0.97, 0.04,
+                    f'$\\hat{{R}}$={rh_big:.2f}\nESS={ess_big:.0f}',
+                    transform=ax.transAxes, fontsize=12, ha='right',
+                    va='bottom',
+                    bbox=dict(boxstyle='round,pad=0.3', fc='white',
+                              ec='0.6', alpha=0.85))
+            if c == 0:
+                ax.set_ylabel(f'${flab}_{{{cell}}}$  ({ncount} obs)',
+                              fontsize=16)
+            if r == 0:
+                ax.set_title(f'{kname} running mean (4 chains)', fontsize=16)
+                ax.legend(fontsize=9, ncol=2, loc='upper right')
+            if r == nrows - 1:
+                ax.set_xlabel('Post burn-in iteration', fontsize=14)
+            ax.tick_params(labelsize=12)
+
+        # col 2: pooled posterior — pCN vs HMC overlaid
+        ax = axes[r, 2]
+        pooled_pcn = np.concatenate(runs['pCN']['per_na'][na_big])
+        pooled_hmc = np.concatenate(runs['HMC']['per_na'][na_big])
+        bins = np.linspace(
+            min(pooled_pcn.min(), pooled_hmc.min()),
+            max(pooled_pcn.max(), pooled_hmc.max()), 60)
+        ax.hist(pooled_pcn, bins=bins, density=True, color='#1f77b4',
+                alpha=0.5, label='pCN')
+        ax.hist(pooled_hmc, bins=bins, density=True, histtype='step',
+                color='#d62728', lw=2.0, label='HMC')
+        ax.axvline(tval, color='green', lw=2, label='nature run')
+        if r == 0:
+            ax.set_title('Pooled Posterior', fontsize=16)
+            ax.legend(fontsize=11)
+        if r == nrows - 1:
+            ax.set_xlabel('Value', fontsize=14)
+        ax.tick_params(labelsize=12)
+
+        # col 3: R-hat & ESS vs N_a — pCN vs HMC
+        ax = axes[r, 3]
+        ax.plot(na_list, runs['pCN']['rhat'], 'o-', color='#1f77b4', lw=2,
+                ms=7, label=r'$\hat{R}$ pCN')
+        ax.plot(na_list, runs['HMC']['rhat'], 's--', color='#d62728', lw=2,
+                ms=7, label=r'$\hat{R}$ HMC')
+        ax.axhline(1.1, color='gray', ls=':', lw=1.2, label=r'$\hat{R}=1.1$')
+        all_rhat = runs['pCN']['rhat'] + runs['HMC']['rhat']
+        ax.set_ylim(0.95, max(1.25, np.nanmax(all_rhat) * 1.05))
+        ax.set_xticks(na_list)
+        ax.set_ylabel(r'$\hat{R}$', fontsize=15)
+        axb = ax.twinx()
+        axb.plot(na_list, runs['pCN']['ess'], 'o-', color='#2ca02c', lw=2,
+                 ms=7, alpha=0.6, label='ESS pCN')
+        axb.plot(na_list, runs['HMC']['ess'], 's--', color='#2ca02c', lw=2,
+                 ms=7, label='ESS HMC')
+        axb.set_ylabel('ESS', fontsize=15, color='#2ca02c')
+        axb.tick_params(axis='y', labelcolor='#2ca02c', labelsize=11)
+        if r == 0:
+            ax.set_title(r'$\hat{R}$ / ESS vs $N_a$', fontsize=16)
+            h1, l1 = ax.get_legend_handles_labels()
+            h2, l2 = axb.get_legend_handles_labels()
+            ax.legend(h1 + h2, l1 + l2, fontsize=9, loc='center right')
+        if r == nrows - 1:
+            ax.set_xlabel('chain length $N_a$', fontsize=14)
+        ax.tick_params(labelsize=12)
+
+    fig.suptitle(
+        f'arctan + Cauchy {version}: pCN vs HMC convergence at the '
+        'most-observed cell (4 chains; velocity and SST)',
+        fontsize=18, y=1.005)
+    fig.tight_layout()
+    mcmc_compare_fname = f'nlgamma_convergence_mcmc_{version.lower()}_compare.pdf'
+    savefig(fig, mcmc_compare_fname)
+
+
+# ────────────────────────────────────────────────────
 # Main
 # ────────────────────────────────────────────────────
 
@@ -1154,6 +1636,8 @@ def main():
     # ── Load data ──
     v1_nc = os.path.join(BASEDIR, 'output_nlgamma_twin_V1',
                          'mlswe_lsmcmc_out.nc')
+    v1_diag_nc = os.path.join(BASEDIR, 'output_nlgamma_twin_V1_diag',
+                              'mlswe_lsmcmc_out.nc')
     truth_nc = os.path.join(BASEDIR, 'output_nlgamma_twin_V1',
                             'truth_trajectory.nc')
     letkf_log = os.path.join(BASEDIR, 'nlgamma_letkf.log')
@@ -1198,6 +1682,19 @@ def main():
     v2_rmse = {'vel': v2_vel, 'sst': v2_sst, 'ssh': v2_ssh}
     plot_compare_rmse(v1_rmse, v2_rmse, v1_hmc_rmse=v1_hmc_rmse)
 
+    # Standalone diagnostic: RMSE and spread on the same axes.
+    if os.path.exists(v1_diag_nc):
+        v1_diag = load_analysis(v1_diag_nc)
+        if (v1_diag.get('spread_vel') is not None
+                and v1_diag.get('spread_sst') is not None
+                and v1_diag.get('spread_ssh') is not None):
+            plot_rmse_spread_overlay(v1_diag,
+                                     fname='nlgamma_rmse_spread_overlay.pdf')
+        else:
+            print("  WARNING: V1 diagnostic file exists but has no spread fields")
+    else:
+        print("  WARNING: V1 diagnostic output not found, skipping overlay plot")
+
     # ── Figure 2: LETKF blowup ──
     if os.path.exists(letkf_log):
         cycles, vel, sst, ssh = parse_letkf_log(letkf_log)
@@ -1222,6 +1719,56 @@ def main():
 
     # ── Figure 5: MCMC diagnostics ──
     generate_mcmc_diagnostics(v1, truth_raw)
+
+    # ── Figure 6: N_a convergence study (chain length + Gelman-Rubin) ──
+    #    Generate both V1 kernel-specific RMSE-vs-Na figures.
+    generate_convergence_diagnostics(v1, truth_raw, version='V1',
+                                     kernel_override='pCN')
+    generate_convergence_diagnostics(v1, truth_raw, version='V1',
+                                     kernel_override='HMC')
+    v2_diag_nc = os.path.join(BASEDIR, 'output_nlgamma_twin_V2_diag',
+                              'mlswe_lsmcmc_out.nc')
+    if os.path.exists(v2_diag_nc):
+        v2_diag = load_analysis(v2_diag_nc)
+        generate_convergence_diagnostics(v2_diag, truth_raw, version='V2')
+    else:
+        print("  WARNING: V2 diag output not found, skipping V2 convergence")
+
+    # ── Standalone diagnostics: RMSE+spread time-series for all diagnostic runs ──
+    print("\n  Generating RMSE+spread time-series diagnostics...")
+    diagnostic_runs = [
+        ('ldata_v1', 'output_lsmcmc_ldata_V1_diag/mlswe_lsmcmc_out.nc',
+         'ldata_v1_rmse_spread_timeseries.pdf', 'Linear Data V1'),
+        ('ldata_v2', 'output_lsmcmc_ldata_V2_diag/mlswe_lsmcmc_out.nc',
+         'ldata_v2_rmse_spread_timeseries.pdf', 'Linear Data V2'),
+        ('letkf', 'output_letkf_best_diag/mlswe_letkf_out.nc',
+         'ldata_letkf_rmse_spread_timeseries.pdf', 'LETKF (Linear Data)'),
+        ('nltwin_v1', 'output_lsmcmc_nldata_twin_V1_diag/mlswe_lsmcmc_out.nc',
+         'nltwin_v1_rmse_spread_timeseries.pdf', 'NL Twin V1'),
+        ('nltwin_v2', 'output_lsmcmc_nldata_twin_V2_diag/mlswe_lsmcmc_out.nc',
+         'nltwin_v2_rmse_spread_timeseries.pdf', 'NL Twin V2'),
+        ('nlgamma_v1', 'output_nlgamma_twin_V1_diag/mlswe_lsmcmc_out.nc',
+         'nlgamma_v1_rmse_spread_timeseries.pdf', 'arctan + Cauchy V1'),
+        ('nlgamma_v2', 'output_nlgamma_twin_V2_diag/mlswe_lsmcmc_out.nc',
+         'nlgamma_v2_rmse_spread_timeseries.pdf', 'arctan + Cauchy V2'),
+    ]
+    for exp_name, nc_path, fname, display_name in diagnostic_runs:
+        full_path = os.path.join(BASEDIR, nc_path)
+        if os.path.exists(full_path):
+            try:
+                diag_data = load_analysis(full_path)
+                if (diag_data.get('spread_vel') is not None
+                        and diag_data.get('spread_sst') is not None
+                        and diag_data.get('spread_ssh') is not None):
+                    print(f"    Generating {exp_name}...")
+                    plot_rmse_spread_overlay(diag_data, fname=fname,
+                                            exp_name=display_name)
+                else:
+                    print(f"    WARNING: {exp_name} file exists but has no spread")
+            except Exception as e:
+                print(f"    ERROR loading {exp_name}: {e}")
+        else:
+            print(f"    Skipping {exp_name} (file not found)")
 
     print("\nDone!")
 

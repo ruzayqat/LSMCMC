@@ -46,6 +46,7 @@ from mlswe.letkf import (
     precompute_covlocal,
     precompute_covlocal_local,
 )
+from mlswe import da_diagnostics as _diag
 
 N_LAYERS = 3
 FIELDS_PER_LAYER = 4
@@ -732,6 +733,8 @@ def main():
 
     # ---- Output directory ----
     outdir = params.get('letkf_dir', './output_letkf')
+    if os.environ.get('MLSWE_OUTDIR'):
+        outdir = os.environ['MLSWE_OUTDIR']
     os.makedirs(outdir, exist_ok=True)
 
     # ---- Initialise ensemble ----
@@ -794,6 +797,41 @@ def main():
     rmse_sst_store = np.zeros(nassim)
     rmse_ssh_store = np.zeros(nassim)
 
+    # ---- Optional spread / rank-histogram diagnostics ----
+    save_spread = (bool(params.get('save_spread', False))
+                   or os.environ.get('MLSWE_SAVE_SPREAD', '').lower()
+                   in ('1', 'true', 'yes'))
+    if save_spread:
+        spread_vel = np.full(nassim, np.nan)
+        spread_sst = np.full(nassim, np.nan)
+        spread_ssh = np.full(nassim, np.nan)
+        rankhist = {nm: np.zeros(nanals + 1, dtype=np.int64)
+                    for nm in ('ssh', 'vel', 'sst')}
+        _diag_rng = np.random.default_rng(int(params.get('cv_seed', 12345)))
+        fcst_ens_full = None
+        print(f"[LETKF] save_spread enabled: ensemble spread + rank "
+              f"histograms ({nanals + 1} ranks)")
+
+    # ---- Optional cross-validation: withhold obs from assimilation ----
+    cv_fraction = float(params.get('cv_fraction', 0.0))
+    _env_cv = os.environ.get('MLSWE_CV_FRACTION', '')
+    if _env_cv:
+        cv_fraction = float(_env_cv)
+    cv_seed = int(params.get('cv_seed', 12345))
+    _env_seed = os.environ.get('MLSWE_CV_SEED', '')
+    if _env_seed:
+        cv_seed = int(_env_seed)
+    if cv_fraction > 0:
+        rmse_cv_vel = np.full(nassim, np.nan)
+        rmse_cv_sst = np.full(nassim, np.nan)
+        rmse_cv_ssh = np.full(nassim, np.nan)
+        spread_cv_vel = np.full(nassim, np.nan)
+        spread_cv_sst = np.full(nassim, np.nan)
+        spread_cv_ssh = np.full(nassim, np.nan)
+        print(f"[LETKF] cross-validation enabled: withholding "
+              f"{cv_fraction*100:.0f}% of obs from assimilation "
+              f"(seed={cv_seed})")
+
     # =================================================================
     #  CYCLING
     # =================================================================
@@ -809,6 +847,24 @@ def main():
         obs_cells = ind0_list[ntime]
         obs_errvar = sig_list[ntime] ** 2
         nobs = len(obs_values)
+
+        # [CV] withhold a fraction of obs from assimilation for scoring
+        obs_ind_hold = y_hold = None
+        if cv_fraction > 0 and nobs > 0:
+            obs_values = np.asarray(obs_values)
+            obs_indices = np.asarray(obs_indices, dtype=int)
+            obs_cells = np.asarray(obs_cells, dtype=int)
+            obs_errvar = np.asarray(obs_errvar)
+            assim_m, cv_hold = _diag.cv_split(
+                nobs, cv_fraction, cv_seed + ntime)
+            if cv_hold.any():
+                obs_ind_hold = obs_indices[cv_hold]
+                y_hold = obs_values[cv_hold]
+                obs_values = obs_values[assim_m]
+                obs_indices = obs_indices[assim_m]
+                obs_cells = obs_cells[assim_m]
+                obs_errvar = obs_errvar[assim_m]
+                nobs = len(obs_values)
 
         # ---- Ensemble forecast (mp.Pool) ----
         t_fcst = time.time()
@@ -852,6 +908,10 @@ def main():
         pvens_3d = pvens.reshape(nanals, nfields, ncells)
         pvensmean_b = pvens_3d.mean(axis=0)
         fsprd = np.sqrt(((pvens_3d - pvensmean_b) ** 2).sum(axis=0) / (nanals - 1))
+
+        # Snapshot of the forecast (prior) ensemble for spread / rank diagnostics
+        if save_spread:
+            fcst_ens_full = pvens.T.copy()       # (dimx, nanals), before DA
 
         # ---- LETKF update (mp.Pool with shared-memory pvens) ----
         t_da = time.time()
@@ -951,6 +1011,19 @@ def main():
         z_a = pvens.mean(axis=0)
         analysis_mean[ntime + 1] = z_a
 
+        # [CV] score the analysis against the withheld (held-out) observations
+        if (cv_fraction > 0 and obs_ind_hold is not None
+                and len(obs_ind_hold) > 0):
+            cvh = _diag.cv_rmse(z_a, obs_ind_hold, y_hold, ncells)
+            rmse_cv_ssh[ntime] = cvh['ssh']
+            rmse_cv_vel[ntime] = cvh['vel']
+            rmse_cv_sst[ntime] = cvh['sst']
+            # Posterior ensemble spread at the withheld locations.
+            sph = _diag.obs_spread(pvens.T, obs_ind_hold, ncells)
+            spread_cv_ssh[ntime] = sph['ssh']
+            spread_cv_vel[ntime] = sph['vel']
+            spread_cv_sst[ntime] = sph['sst']
+
         if nobs > 0:
             obs_arr = np.asarray(obs_indices, dtype=int)
             residuals = z_a[obs_arr] - obs_values
@@ -968,6 +1041,19 @@ def main():
             rmse_ssh_store[ntime] = rmse_ssh
             sst_str = f"  sst={rmse_sst:.3f}K" if sst_mask.sum() > 0 else ""
             ssh_str = f"  ssh={rmse_ssh:.3f}m" if ssh_mask.sum() > 0 else ""
+
+            # ---- Forecast spread + rank histograms ----
+            if save_spread and fcst_ens_full is not None:
+                # Rank histogram from the prior (forecast) ensemble.
+                _diag.spread_and_rank(
+                    fcst_ens_full, obs_arr, obs_values, ncells,
+                    rankhist, _diag_rng, sig_y=np.sqrt(obs_errvar))
+                # Reported spread from the POSTERIOR (analysis) ensemble at the
+                # observation locations, matching the obs-space analysis RMSE.
+                sp = _diag.obs_spread(pvens.T, obs_arr, ncells)
+                spread_ssh[ntime] = sp['ssh']
+                spread_vel[ntime] = sp['vel']
+                spread_sst[ntime] = sp['sst']
         else:
             rmse_vel_store[ntime] = np.nan
             rmse_sst_store[ntime] = np.nan
@@ -1016,6 +1102,35 @@ def main():
         rs[:] = rmse_sst_store.astype(np.float32)
         rh = nc.createVariable('rmse_ssh', 'f4', ('cycle',), zlib=True)
         rh[:] = rmse_ssh_store.astype(np.float32)
+
+        # ---- Spread / rank-histogram diagnostics ----
+        if save_spread:
+            nc.createDimension('rank', nanals + 1)
+            for nm, arr in (('vel', spread_vel), ('sst', spread_sst),
+                            ('ssh', spread_ssh)):
+                sv = nc.createVariable(f'spread_{nm}', 'f4', ('cycle',),
+                                       zlib=True)
+                sv[:] = arr.astype(np.float32)
+            for nm in ('ssh', 'vel', 'sst'):
+                rk = nc.createVariable(f'rankhist_{nm}', 'i8', ('rank',),
+                                       zlib=True)
+                rk[:] = rankhist[nm]
+            nc.save_spread = 1
+
+        # ---- Cross-validation (held-out) diagnostics ----
+        if cv_fraction > 0:
+            nc.cv_fraction = float(cv_fraction)
+            nc.cv_seed = int(cv_seed)
+            for nm, arr in (('vel', rmse_cv_vel), ('sst', rmse_cv_sst),
+                            ('ssh', rmse_cv_ssh)):
+                cvv = nc.createVariable(f'rmse_cv_{nm}', 'f4', ('cycle',),
+                                        zlib=True)
+                cvv[:] = arr.astype(np.float32)
+            for nm, arr in (('vel', spread_cv_vel), ('sst', spread_cv_sst),
+                            ('ssh', spread_cv_ssh)):
+                cvs = nc.createVariable(f'spread_cv_{nm}', 'f4', ('cycle',),
+                                        zlib=True)
+                cvs[:] = arr.astype(np.float32)
 
         # Save bathymetry so plotter always uses the correct H_b
         if H_b is not None:

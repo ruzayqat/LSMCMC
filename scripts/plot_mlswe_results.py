@@ -464,12 +464,12 @@ def main(outdir='./output_lsmcmc', save_prefix='mlswe_results',
         rmse_sst = rmse_dict['sst']
         rmse_ssh = rmse_dict['ssh']
         
-        # Use saved SSH RMSE if present (since obs file often lacks SSH)
+        # Use saved h RMSE if present (since obs file often lacks this channel)
         if rmse_ssh_saved is not None and np.any(np.isfinite(rmse_ssh_saved)):
             # Only override if the computed one is all NaN or largely missing
             if not np.any(np.isfinite(rmse_ssh)):
                 rmse_ssh = rmse_ssh_saved
-                print(f"Using saved SSH RMSE from NetCDF (mean={np.nanmean(rmse_ssh):.4f} m)")
+            print(f"Using saved h RMSE from NetCDF (mean={np.nanmean(rmse_ssh):.4f} m)")
 
         print(f"\nRMSE (analysis vs drifter obs):")
         print(f"  {'Cycle':>5s}  {'Total':>10s}  {'Velocity':>10s}  {'SST(K)':>10s}  {'SSH(m)':>10s}")
@@ -502,7 +502,7 @@ def main(outdir='./output_lsmcmc', save_prefix='mlswe_results',
         if np.isfinite(mean_rmse_sst):
             print(f"  Mean SST RMSE:      {mean_rmse_sst:.4f} K")
         if np.isfinite(mean_rmse_ssh):
-            print(f"  Mean SSH RMSE:      {mean_rmse_ssh:.4f} m")
+            print(f"  Mean h RMSE:        {mean_rmse_ssh:.4f} m")
         print(f"  sig_y (vel noise):  {sig_y:.6f}")
         print(f"  Data std (vel obs): {data_std:.4f} m/s")
         print(f"  Data mean (vel):    {data_mean:.4f} m/s")
@@ -995,12 +995,12 @@ def main(outdir='./output_lsmcmc', save_prefix='mlswe_results',
         print(f"Saved: {fig5_path}")
 
     # ================================================================
-    #  Figure 6: RMSE time series (UV, SSH, SST — 3 subplots)
+    #  Figure 6: RMSE time series (UV, h, SST - 3 subplots)
     #  With observation noise std as dotted horizontal lines.
     #  Goal: RMSE should be below the noise lines.
     # ================================================================
     if has_obs and rmse_vel is not None:
-        # Use SSH RMSE from compute_rmse_vs_obs; fall back to saved in NC
+        # Use h RMSE from compute_rmse_vs_obs; fall back to saved in NC
         rmse_ssh_plot = rmse_ssh
         if rmse_ssh_plot is None or not np.any(np.isfinite(rmse_ssh_plot)):
             with Dataset(nc_path, 'r') as _nc_check:
@@ -1028,18 +1028,18 @@ def main(outdir='./output_lsmcmc', save_prefix='mlswe_results',
         ax.grid(True, alpha=0.3)
         ax.set_ylim(bottom=0)
 
-        # --- Panel 2: SSH RMSE ---
+        # --- Panel 2: h RMSE ---
         ax = axes6[1]
         if rmse_ssh_plot is not None and np.any(np.isfinite(rmse_ssh_plot)):
             ax.plot(cycles, rmse_ssh_plot, 'g-', lw=1.2, alpha=0.8,
                     label=f'{method_label} RMSE')
-            ax.set_title(f'SSH RMSE  —  mean = {np.nanmean(rmse_ssh_plot):.4f} m',
+            ax.set_title(f'h RMSE  —  mean = {np.nanmean(rmse_ssh_plot):.4f} m',
                          fontsize=12, fontweight='bold')
         else:
-            ax.set_title('SSH RMSE  —  (not available)', fontsize=12)
+            ax.set_title('h RMSE  —  (not available)', fontsize=12)
         ax.axhline(sig_ssh_cfg, color='k', ls=':', lw=1.5,
-                   label=f'$\\sigma_{{ssh}}$ = {sig_ssh_cfg:.2f} m')
-        ax.set_ylabel('SSH RMSE (m)', fontsize=11)
+                   label=f'$\\sigma_{{h}}$ = {sig_ssh_cfg:.2f} m')
+        ax.set_ylabel('h RMSE (m)', fontsize=11)
         ax.legend(fontsize=9, loc='upper right')
         ax.grid(True, alpha=0.3)
         ax.set_ylim(bottom=0)
@@ -1102,11 +1102,11 @@ def main(outdir='./output_lsmcmc', save_prefix='mlswe_results',
             if has_ssh_data:
                 ax = axes6b[panel_idx]
                 ax.plot(cycles, rmse_ssh, 'g-s', markersize=2, lw=1.2,
-                        label=f'SSH RMSE vs data (mean = {np.nanmean(rmse_ssh):.4f} m)')
+                    label=f'h RMSE vs data (mean = {np.nanmean(rmse_ssh):.4f} m)')
                 ax.axhline(sig_ssh_cfg, color='k', ls=':', lw=1.5,
-                           label=f'$\\sigma_{{ssh}}$ = {sig_ssh_cfg:.2f} m')
-                ax.set_ylabel('SSH RMSE (m)', fontsize=11)
-                ax.set_title(f'SSH RMSE vs Data  —  mean = {np.nanmean(rmse_ssh):.4f} m',
+                       label=f'$\\sigma_{{h}}$ = {sig_ssh_cfg:.2f} m')
+                ax.set_ylabel('h RMSE (m)', fontsize=11)
+                ax.set_title(f'h RMSE vs Data  —  mean = {np.nanmean(rmse_ssh):.4f} m',
                              fontsize=12, fontweight='bold')
                 ax.legend(fontsize=9); ax.grid(True, alpha=0.3); ax.set_ylim(bottom=0)
                 panel_idx += 1
@@ -1418,9 +1418,9 @@ def main(outdir='./output_lsmcmc', save_prefix='mlswe_results',
                   f"{np.nanmax(rmse_sst):.4f} K")
             print(f"  Mean SST RMSE:  {np.nanmean(rmse_sst):.4f} K")
         if rmse_ssh is not None and np.any(np.isfinite(rmse_ssh)):
-            print(f"  SSH RMSE range: {np.nanmin(rmse_ssh):.4f} - "
+            print(f"  h RMSE range:   {np.nanmin(rmse_ssh):.4f} - "
                   f"{np.nanmax(rmse_ssh):.4f} m")
-            print(f"  Mean SSH RMSE:  {np.nanmean(rmse_ssh):.4f} m")
+            print(f"  Mean h RMSE:    {np.nanmean(rmse_ssh):.4f} m")
     if H_b is not None:
         print(f"  Bathymetry: depth range {H_b.min():.0f} - {H_b.max():.0f} m")
     print("=" * 60)

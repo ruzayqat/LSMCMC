@@ -13,8 +13,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.lines import Line2D
+import os
 
 np.random.seed(42)
+
+# Output directory for figures (override with FIGURES_DIR); created if missing.
+FIG_DIR = os.environ.get('FIGURES_DIR', 'paper_figures')
+os.makedirs(FIG_DIR, exist_ok=True)
 
 # -- Grid and block parameters -------------------------------------------------
 Nx, Ny = 100, 100
@@ -156,17 +161,8 @@ v2_legend = [
 ]
 
 # =============================================================================
-#  Build 1x2 figure (V1 and V2)
+#  Panel descriptions (shared by the combined and the split figures)
 # =============================================================================
-fig, axes = plt.subplots(1, 2, figsize=(15, 7.5), constrained_layout=True)
-
-# Titles
-titles = {
-    0: '(a) V1',
-    1: '(b) V2',
-}
-
-# Descriptive annotations
 annotations = {
     0: ('LGOM: Direct sampling on the shaded domain.\n'
         'NLOM or NGOM: Parallel MCMC chains on the shaded domain\n'
@@ -176,35 +172,70 @@ annotations = {
         r'with $N_{\mathrm{burn}}+N_a$ iterations'),
 }
 
-for col in range(2):
-    ax = axes[col]
-    if col == 0:
-        draw_v1_panel(ax)
-        ax.legend(handles=v1_legend, loc='upper right',
-                  fontsize=13, framealpha=0.9)
-    else:
-        draw_v2_panel(ax)
-        ax.legend(handles=v2_legend, loc='upper right',
-                  fontsize=12, framealpha=0.9)
 
+def _render_v1(ax, *, title=None):
+    draw_v1_panel(ax)
+    ax.legend(handles=v1_legend, loc='upper right',
+              fontsize=13, framealpha=0.9)
     setup_ax(ax)
-    ax.set_title(titles[col], fontsize=16, fontweight='bold', pad=10)
-
-    # Place annotation inside the plot at bottom-left
-    ax.text(0.03, 0.03, annotations[col],
+    if title:
+        ax.set_title(title, fontsize=16, fontweight='bold', pad=10)
+    ax.text(0.03, 0.03, annotations[0],
             transform=ax.transAxes, fontsize=13,
             verticalalignment='bottom', horizontalalignment='left',
             bbox=dict(boxstyle='round,pad=0.35', facecolor='wheat',
                       edgecolor='gray', alpha=0.88),
             zorder=10)
 
-# -- Save ----------------------------------------------------------------------
-import os
-os.makedirs('paper_figures', exist_ok=True)
-fig.savefig('paper_figures/localization_v1_v2_illustration.pdf',
+
+def _render_v2(ax, *, title=None):
+    draw_v2_panel(ax)
+    ax.legend(handles=v2_legend, loc='upper right',
+              fontsize=12, framealpha=0.9)
+    setup_ax(ax)
+    if title:
+        ax.set_title(title, fontsize=16, fontweight='bold', pad=10)
+    ax.text(0.03, 0.03, annotations[1],
+            transform=ax.transAxes, fontsize=13,
+            verticalalignment='bottom', horizontalalignment='left',
+            bbox=dict(boxstyle='round,pad=0.35', facecolor='wheat',
+                      edgecolor='gray', alpha=0.88),
+            zorder=10)
+
+
+# =============================================================================
+#  Two separate figures -- one for V1, one for V2
+# =============================================================================
+fig_v1, ax_v1 = plt.subplots(1, 1, figsize=(8, 8), constrained_layout=True)
+_render_v1(ax_v1)
+fig_v1.savefig(os.path.join(FIG_DIR, 'localization_v1_illustration.pdf'),
+               bbox_inches='tight', dpi=300)
+fig_v1.savefig(os.path.join(FIG_DIR, 'localization_v1_illustration.png'),
+               bbox_inches='tight', dpi=300)
+plt.close(fig_v1)
+print(f"Saved: {FIG_DIR}/localization_v1_illustration.pdf")
+print(f"Saved: {FIG_DIR}/localization_v1_illustration.png")
+
+fig_v2, ax_v2 = plt.subplots(1, 1, figsize=(8, 8), constrained_layout=True)
+_render_v2(ax_v2)
+fig_v2.savefig(os.path.join(FIG_DIR, 'localization_v2_illustration.pdf'),
+               bbox_inches='tight', dpi=300)
+fig_v2.savefig(os.path.join(FIG_DIR, 'localization_v2_illustration.png'),
+               bbox_inches='tight', dpi=300)
+plt.close(fig_v2)
+print(f"Saved: {FIG_DIR}/localization_v2_illustration.pdf")
+print(f"Saved: {FIG_DIR}/localization_v2_illustration.png")
+
+# =============================================================================
+#  Combined 1x2 figure (kept for backward compatibility)
+# =============================================================================
+fig, axes = plt.subplots(1, 2, figsize=(15, 7.5), constrained_layout=True)
+_render_v1(axes[0], title='(a) V1')
+_render_v2(axes[1], title='(b) V2')
+fig.savefig(os.path.join(FIG_DIR, 'localization_v1_v2_illustration.pdf'),
             bbox_inches='tight', dpi=300)
-fig.savefig('paper_figures/localization_v1_v2_illustration.png',
+fig.savefig(os.path.join(FIG_DIR, 'localization_v1_v2_illustration.png'),
             bbox_inches='tight', dpi=300)
 plt.close()
-print("Saved: paper_figures/localization_v1_v2_illustration.pdf")
-print("Saved: paper_figures/localization_v1_v2_illustration.png")
+print(f"Saved: {FIG_DIR}/localization_v1_v2_illustration.pdf")
+print(f"Saved: {FIG_DIR}/localization_v1_v2_illustration.png")

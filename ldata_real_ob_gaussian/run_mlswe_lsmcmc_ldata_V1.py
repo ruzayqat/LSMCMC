@@ -293,6 +293,12 @@ def main():
     print("=" * 60)
     print("  MLSWE LSMCMC Runner -- 3-Layer Primitive Equations")
     print("=" * 60)
+    if params.get('free_run') or params.get('save_spread') \
+            or float(params.get('cv_fraction', 0.0)) > 0:
+        print(f"  [diagnostics] free_run={bool(params.get('free_run', False))}  "
+              f"save_spread={bool(params.get('save_spread', False))}  "
+              f"cv_fraction={float(params.get('cv_fraction', 0.0))}  "
+              f"outdir={params.get('lsmcmc_dir')}")
 
     nx = params['dgx']
     ny = params['dgy']

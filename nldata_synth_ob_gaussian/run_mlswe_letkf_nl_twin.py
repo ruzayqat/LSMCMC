@@ -46,6 +46,7 @@ from mlswe.letkf import (
     calcwts_letkf,
     precompute_covlocal_local,
 )
+import mlswe.da_diagnostics as _diag
 
 N_LAYERS = 3
 FIELDS_PER_LAYER = 4
@@ -467,6 +468,8 @@ def main():
 
     # ---- Output directory ----
     outdir = params.get('letkf_dir', './output_letkf_nl_twin')
+    if 'MLSWE_OUTDIR' in os.environ:
+        outdir = os.environ['MLSWE_OUTDIR']
     os.makedirs(outdir, exist_ok=True)
 
     # ---- Create forecast pool ----
@@ -496,15 +499,40 @@ def main():
 
     # ---- Initialise ensemble (one MLSWE per member for IC only) ----
     pvens = np.empty((nanals, dimx), dtype=np.float64)
+    # Optional coherent initial-condition displacement for twin experiments.
+    # Gated by 'init_perturb_scale' (default 0 => unchanged behaviour).
+    # A single random field per layer-0 field (identical across members) is
+    # added so the LETKF ensemble MEAN is displaced from the nature run at
+    # t=0, matching the LSMCMC twin setup for a fair comparison.  The
+    # per-member spread below (tuned via covinflate) is left unchanged.
+    init_perturb_scale = float(params.get('init_perturb_scale', 0.0))
+    if init_perturb_scale > 0.0:
+        rng_ic = np.random.default_rng(
+            int(params.get('init_perturb_seed', 12345)))
+        h_off = [init_perturb_scale * sig_x_ssh
+                 * rng_ic.standard_normal((ny, nx)) for _ in h0]
+        u_off = [init_perturb_scale * sig_x_uv
+                 * rng_ic.standard_normal((ny, nx)) for _ in u0]
+        v_off = [init_perturb_scale * sig_x_uv
+                 * rng_ic.standard_normal((ny, nx)) for _ in v0]
+        T_off = [init_perturb_scale * sig_x_sst
+                 * rng_ic.standard_normal((ny, nx)) for _ in T0]
+        print(f"[NL-LETKF] Applied coherent initial-condition displacement "
+              f"(scale={init_perturb_scale} x sig_x) for twin run")
+    else:
+        h_off = [0.0 for _ in h0]
+        u_off = [0.0 for _ in u0]
+        v_off = [0.0 for _ in v0]
+        T_off = [0.0 for _ in T0]
     for k_ens in range(nanals):
-        h_pert = [hk + np.random.normal(scale=sig_x_ssh, size=(ny, nx))
-                  for hk in h0]
-        u_pert = [uk + np.random.normal(scale=sig_x_uv, size=(ny, nx))
-                  for uk in u0]
-        v_pert = [vk + np.random.normal(scale=sig_x_uv, size=(ny, nx))
-                  for vk in v0]
-        T_pert = [Tk + np.random.normal(scale=sig_x_sst, size=(ny, nx))
-                  for Tk in T0]
+        h_pert = [hk + h_off[i] + np.random.normal(scale=sig_x_ssh, size=(ny, nx))
+                  for i, hk in enumerate(h0)]
+        u_pert = [uk + u_off[i] + np.random.normal(scale=sig_x_uv, size=(ny, nx))
+                  for i, uk in enumerate(u0)]
+        v_pert = [vk + v_off[i] + np.random.normal(scale=sig_x_uv, size=(ny, nx))
+                  for i, vk in enumerate(v0)]
+        T_pert = [Tk + T_off[i] + np.random.normal(scale=sig_x_sst, size=(ny, nx))
+                  for i, Tk in enumerate(T0)]
         tmp_mdl = MLSWE(h_pert, u_pert, v_pert, T0=T_pert, **model_kw)
         pvens[k_ens] = tmp_mdl.state_flat.copy()
         del tmp_mdl
@@ -531,6 +559,17 @@ def main():
     rmse_vel_store = np.zeros(nassim)
     rmse_sst_store = np.zeros(nassim)
     rmse_ssh_store = np.zeros(nassim)
+
+    # ---- Optional full-field spread diagnostics (twin convention) ----
+    save_spread = (bool(params.get('save_spread', False))
+                   or os.environ.get('MLSWE_SAVE_SPREAD', '').lower()
+                   in ('1', 'true', 'yes'))
+    if save_spread:
+        spread_vel = np.full(nassim, np.nan)
+        spread_sst = np.full(nassim, np.nan)
+        spread_ssh = np.full(nassim, np.nan)
+        print("[NL-LETKF] save_spread enabled: full-field state-space "
+              "ensemble spread (matches V1/V2 twin RMSE convention)")
 
     # =================================================================
     #  CYCLING
@@ -666,6 +705,13 @@ def main():
         rmse_sst_store[ntime] = rmse_sst
         rmse_ssh_store[ntime] = rmse_ssh
 
+        # ---- Full-field posterior ensemble spread (twin convention) ----
+        if save_spread:
+            sp = _diag.state_spread(pvens.T, ncells)
+            spread_vel[ntime] = sp['vel']
+            spread_sst[ntime] = sp['sst']
+            spread_ssh[ntime] = sp['ssh']
+
         dt_wall = time.time() - t_step
         if (ntime + 1) % 10 == 0 or ntime == 0:
             print(f"  [{ntime+1:04d}/{nassim}]  nobs={nobs:4d}  "
@@ -708,6 +754,13 @@ def main():
         rs[:] = rmse_sst_store.astype(np.float32)
         rh = nc.createVariable('rmse_ssh', 'f4', ('cycle',))
         rh[:] = rmse_ssh_store.astype(np.float32)
+
+        if save_spread:
+            for nm, arr in (('vel', spread_vel), ('sst', spread_sst),
+                            ('ssh', spread_ssh)):
+                sv = nc.createVariable(f'spread_{nm}', 'f4', ('cycle',))
+                sv[:] = arr.astype(np.float32)
+            nc.save_spread = 1
 
         if H_b is not None:
             vb = nc.createVariable('H_b', 'f4', ('y', 'x'), zlib=True)

@@ -163,7 +163,7 @@ class Loc_SMCMC_MLSWE_Filter:
         # Verbosity control (set verbose=False for M-run workers)
         self.verbose = params.get('verbose', True)
 
-        # ---- Optional reviewer-requested diagnostics (default OFF) ----
+        # ---- Optional ensemble-calibration diagnostics (default OFF) ----
         # free_run    : skip the analysis update -> no-DA forecast baseline
         # save_spread : accumulate forecast spread + rank histograms
         # cv_fraction : withhold this fraction of obs for cross-validation
@@ -175,6 +175,9 @@ class Loc_SMCMC_MLSWE_Filter:
         # Per-cycle diagnostic accumulators (filled in run())
         self.spread_vel = self.spread_sst = self.spread_ssh = None
         self.rmse_cv_vel = self.rmse_cv_sst = self.rmse_cv_ssh = None
+        # Held-out (out-of-sample) posterior ensemble spread at the withheld
+        # obs locations -- the spread counterpart of rmse_cv_*.
+        self.spread_cv_vel = self.spread_cv_sst = self.spread_cv_ssh = None
         self.rankhist = None
 
         # ---- Adaptive per-field inflation/deflation (default OFF) ----
@@ -624,6 +627,9 @@ class Loc_SMCMC_MLSWE_Filter:
             self.rmse_cv_vel = np.full(self.nassim, np.nan)
             self.rmse_cv_sst = np.full(self.nassim, np.nan)
             self.rmse_cv_ssh = np.full(self.nassim, np.nan)
+            self.spread_cv_vel = np.full(self.nassim, np.nan)
+            self.spread_cv_sst = np.full(self.nassim, np.nan)
+            self.spread_cv_ssh = np.full(self.nassim, np.nan)
 
         if self.adaptive_inflation:
             self.infl_ssh = np.full(self.nassim, np.nan)
@@ -680,14 +686,14 @@ class Loc_SMCMC_MLSWE_Filter:
                 self._adaptive_inflate(
                     y_valid, obs_ind_ml, sig_y_cycle, forecast_mean, cycle)
 
-            # [DIAG] forecast-ensemble spread + rank histogram (prior, all obs)
+            # [DIAG] rank histogram (prior, observation space).  The reported
+            # ensemble spread is computed below from the POSTERIOR ensemble at
+            # the observation locations so it is comparable to the analysis
+            # RMSE (also evaluated at the observation locations).
             if self.save_spread:
-                sp = _diag.spread_and_rank(
+                _diag.spread_and_rank(
                     self.forecast, obs_ind_ml, y_valid, self.ncells,
-                    self.rankhist, self._diag_rng)
-                self.spread_ssh[cycle] = sp['ssh']
-                self.spread_vel[cycle] = sp['vel']
-                self.spread_sst[cycle] = sp['sst']
+                    self.rankhist, self._diag_rng, sig_y=sig_y_cycle)
 
             # [CV] withhold a fraction of obs from assimilation for scoring
             cv_hold = None
@@ -820,12 +826,27 @@ class Loc_SMCMC_MLSWE_Filter:
             if ssh_mask.sum() > 0:
                 rmse_ssh_all[cycle] = np.sqrt(np.mean(residuals[ssh_mask]**2))
 
+            # [DIAG] posterior ensemble spread at the observation locations
+            # (observation space, no transform — matches the obs-space RMSE).
+            if self.save_spread:
+                psp = _diag.obs_spread(self.forecast, obs_ind_ml, nc)
+                self.spread_ssh[cycle] = psp['ssh']
+                self.spread_vel[cycle] = psp['vel']
+                self.spread_sst[cycle] = psp['sst']
+
             # [CV] score the analysis mean against the withheld observations
             if cv_hold is not None and cv_hold.any():
                 cv = _diag.cv_rmse(z_a, obs_ind_hold, y_hold, nc)
                 self.rmse_cv_ssh[cycle] = cv['ssh']
                 self.rmse_cv_vel[cycle] = cv['vel']
                 self.rmse_cv_sst[cycle] = cv['sst']
+                # [CV] out-of-sample posterior ensemble spread at the withheld
+                # locations (comparable to the held-out analysis RMSE above).
+                if self.spread_cv_vel is not None:
+                    spc = _diag.obs_spread(self.forecast, obs_ind_hold, nc)
+                    self.spread_cv_ssh[cycle] = spc['ssh']
+                    self.spread_cv_vel[cycle] = spc['vel']
+                    self.spread_cv_sst[cycle] = spc['sst']
                 # Update the calibration ratio (rmse_cv / spread) that drives
                 # the cv-aware adaptive-inflation feedback on the next cycle.
                 if self.adaptive_inflation and self.save_spread:
@@ -935,6 +956,13 @@ class Loc_SMCMC_MLSWE_Filter:
                             ('ssh', self.rmse_cv_ssh)):
                 vv = nc.createVariable(f'rmse_cv_{nm}', 'f4', ('cycle',))
                 vv[:] = np.asarray(arr, dtype=np.float32)
+            if self.spread_cv_vel is not None:
+                for nm, arr in (('vel', self.spread_cv_vel),
+                                ('sst', self.spread_cv_sst),
+                                ('ssh', self.spread_cv_ssh)):
+                    vv = nc.createVariable(
+                        f'spread_cv_{nm}', 'f4', ('cycle',))
+                    vv[:] = np.asarray(arr, dtype=np.float32)
 
         nc.adaptive_inflation = int(self.adaptive_inflation)
         if self.adaptive_inflation and self.infl_ssh is not None:

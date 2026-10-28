@@ -1076,7 +1076,9 @@ def main():
             obs_global, halo_cells, drop_unmapped=True)
 
         dist_local = dist_obs[nearby_idx][:H_loc.shape[0]]
-        gc_w = gaspari_cohn(dist_local, r_loc)
+        # GC length scale = r_loc/2 so the taper support equals the halo
+        # radius r_loc (smooth decay from 1 at centroid to 0 at boundary).
+        gc_w = gaspari_cohn(dist_local, r_loc / 2.0)
         gc_w = np.maximum(gc_w, 1e-6)
 
         sigma_y_base = sig_y_valid[nearby_idx][:H_loc.shape[0]]

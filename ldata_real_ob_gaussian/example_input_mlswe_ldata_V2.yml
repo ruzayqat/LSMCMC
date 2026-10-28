@@ -88,9 +88,26 @@ sponge_width: 8
 sponge_timescale: 3600.0
 
 # ---- Process noise ----
-sig_x_uv: 0.15
-sig_x_ssh: 0.2
-sig_x_sst: 1.0
+# Spread-tuning pass 1 (target: ensemble spread ~ RMSE):
+#   vel/sst spread sat at the PRIOR sig_x (~12x too high) because RTPS was
+#   relaxing the analysis back to prior spread (rtps_alpha=0.5).  Lower
+#   rtps_alpha (below) lets the localized analysis contract the ensemble,
+#   and we also shrink the prior sig_x for vel/sst.  h spread was already
+#   close, so sig_x_ssh is only nudged up to offset the reduced relaxation.
+# Spread-tuning pass 2 (after pass-1 diag: vel 3.03, sst 0.68, h 1.63):
+#   vel still 3x over -> 0.05 -> 0.02; sst under -> 0.25 -> 0.37;
+#   h over -> 0.3 -> 0.18.  rtps_alpha kept at 0.15.
+# Spread-tuning pass 3 (after pass-2 diag: vel 0.43, sst 1.19, h 0.56):
+#   vel now under (cut too hard, RMSE rose) -> 0.02 -> 0.045;
+#   sst slightly over -> 0.37 -> 0.31; h under -> 0.18 -> 0.32.
+# Spread-tuning pass 4 (after pass-3 diag: vel 2.52, sst 0.97, h 1.84):
+#   sst perfect -> keep 0.31.  h over -> 0.32 -> 0.24 (spread~RMSE crossover).
+#   vel structurally over (spread~=prior sig_x; halo analysis does not
+#   contract vel ensemble; sig_x_uv<=0.02 diverges) -> nudge 0.045 -> 0.035
+#   toward the stability floor; some residual over-dispersion is expected.
+sig_x_uv: 0.035        # pass4; was 0.045
+sig_x_ssh: 0.24        # pass4; was 0.32
+sig_x_sst: 0.31        # pass4; keep (ratio 0.97)
 noise_decay: [1.0, 0.01, 0.01]
 
 # ---- Observations ----
@@ -113,7 +130,7 @@ num_subdomains: 1400
 
 # Per-block halo localization (from SQG approach)
 r_loc: 2.5                 # localization radius in grid points
-rtps_alpha: 0.5             # RTPS relaxation-to-prior-spread coefficient
+rtps_alpha: 0.15            # RTPS relaxation-to-prior-spread coeff (was 0.5)
 reset_interval: 100         # periodic ensemble reset interval (0 = disabled)
 n_block_workers: 104         # threads for parallel block processing
 

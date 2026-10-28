@@ -72,9 +72,20 @@ sponge_timescale: 3600.0
 geostrophic_blend: 0.0
 
 # ---- Process noise ----
+# pass2: reverted to original (pass1 sig_x raise only worsened RMSE, ratio
+#   invariant); spread now calibrated via innovation-based adaptive inflation
+#   (MLSWE_ADAPT_INFL=1) set in the launch script.
 sig_x_uv: 0.15
 sig_x_ssh: 0.5
 sig_x_sst: 1.0
+
+# ---- Twin initial-condition perturbation ----
+# Displaces the filter (and free-run) ensemble from the deterministic nature
+# run at t=0 by a coherent offset (identical across members) plus zero-mean
+# spread, both scaled by this factor times sig_x.  Makes the no-DA free run
+# diverge so assimilation skill is demonstrable.  Set to 0 to disable.
+init_perturb_scale: 3.0
+init_perturb_seed: 12345
 noise_decay: [1.0, 0.01, 0.01]
 
 # ---- Observations (locations from real file, values synthetic) ----
